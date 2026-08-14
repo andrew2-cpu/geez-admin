@@ -245,7 +245,9 @@
           document.getElementById("shaft").focus();
         } else if (d.error === "wrong_password" || d.error === "locked") {
           setMsg("Session expired - log in again.", "bad"); setTimeout(logout, 1200);
-        } else if (d.error === "duplicate_box") { setMsg("This box number is already registered.", "bad"); }
+        } else if (d.error === "duplicate_box") { setMsg("This BOX number is already registered.", "bad"); }
+        else if (d.error === "duplicate_shaft") { setMsg("This SHAFT number is already registered.", "bad"); }
+        else if (d.error === "duplicate_nfc") { setMsg("This NFC number is already registered.", "bad"); }
         else if (d.error === "missing_fields") { setMsg("Fill all 3 numbers.", "bad"); }
         else { setMsg("Could not save. Try again.", "bad"); }
       })
