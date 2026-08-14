@@ -48,12 +48,12 @@
   .photo-ok { color: #1c8a4e; font-size: 12px; margin-left: 8px; }
   .dbg { margin-top: 8px; font-size: 11px; color: #b26a00; word-break: break-all; }
   /* ---- billiard save animation (inline, no background) ---- */
-  #pool { display: none; margin-top: 14px; background: #ffffff; border: 1px solid #e2e2e2; border-radius: 10px; padding: 8px 0; }
+  #pool { display: none; margin-top: 14px; }
   #pool.on { display: block; }
-  .lane { position: relative; width: 100%; max-width: 300px; height: 40px; margin: 0 auto; }
+  .lane { position: relative; width: 100%; max-width: 300px; height: 40px; margin: 0 auto; overflow: hidden; }
   .pball { position: absolute; top: 50%; border-radius: 50%; }
-  .gball { width: 24px; height: 24px; left: 130px; background: #232323; box-shadow: inset -2px -2px 5px rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; overflow: hidden; z-index: 2; transform: translateY(-50%) rotate(0deg); }
-  .stick { position: absolute; top: 50%; height: 6px; width: 112px; left: 6px; transform: translateY(-50%); background: linear-gradient(90deg,#111 0%,#111 92%,#9a9a9a 92%,#b8b8b8 100%); border-radius: 3px; z-index: 1; }
+  .gball { width: 24px; height: 24px; left: 150px; background: #232323; box-shadow: inset -2px -2px 5px rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; overflow: hidden; z-index: 2; transform: translateY(-50%) rotate(0deg); }
+  .stick { position: absolute; top: 50%; height: 6px; width: 224px; left: -98px; transform: translateY(-50%); background: linear-gradient(90deg,#111 0%,#111 96%,#9a9a9a 96%,#b8b8b8 100%); border-radius: 3px; z-index: 1; }
   .frag { position: absolute; top: 50%; left: calc(100% - 24px); width: 7px; height: 7px; border-radius: 50%; background: #269a9e; opacity: 0; }
   .frag:nth-child(even) { background: #232323; }
   .frag.blow { animation: fragfly .5s ease-out forwards; }
@@ -250,7 +250,7 @@
     stick.style.transition = "none";
     stick.style.transform = "translateY(-50%) translateX(0)";
     ball.style.transition = "none";
-    ball.style.left = "130px";
+    ball.style.left = "150px";
     ball.style.opacity = "1";
     ball.style.transform = "translateY(-50%) rotate(0deg)";
     p.classList.add("on");
