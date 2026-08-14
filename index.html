@@ -280,4 +280,36 @@
     var btn = document.getElementById("saveBtn"); btn.disabled = true; setMsg("Saving...", "");
     document.getElementById("dbg").textContent = "";
     poolStart();
-    var payload = { action: "add", key: PASS, shaft: shaft, nfc: nfc, bo
+    var payload = { action: "add", key: PASS, shaft: shaft, nfc: nfc, box: box,
+      pshaft: photos.shaft || "", pnfc: photos.nfc || "", pbox: photos.box || "" };
+    fetch(API_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        btn.disabled = false;
+        if (d.ok) {
+          // shoot the 8-ball, then finish
+          poolShootThen(function () {
+            addedCount++;
+            document.getElementById("counter").textContent = "Added this session: " + addedCount;
+            setMsg("Saved!", "ok");
+            if (d.dbg) document.getElementById("dbg").textContent = "photo note: " + d.dbg;
+            photos = { shaft: "", nfc: "", box: "" };
+            ["okShaft", "okNfc", "okBox"].forEach(function (id) { document.getElementById(id).classList.add("hidden"); });
+            document.getElementById("shaft").value = "";
+            document.getElementById("nfc").value = "";
+            document.getElementById("box").value = "";
+            document.getElementById("shaft").focus();
+          });
+        } else if (d.error === "wrong_password" || d.error === "locked") {
+          poolCancel(); setMsg("Session expired - log in again.", "bad"); setTimeout(logout, 1200);
+        } else if (d.error === "duplicate_box") { poolCancel(); setMsg("This BOX number is already registered.", "bad"); }
+        else if (d.error === "duplicate_shaft") { poolCancel(); setMsg("This SHAFT number is already registered.", "bad"); }
+        else if (d.error === "duplicate_nfc") { poolCancel(); setMsg("This NFC number is already registered.", "bad"); }
+        else if (d.error === "missing_fields") { poolCancel(); setMsg("Fill all 3 numbers.", "bad"); }
+        else { poolCancel(); setMsg("Could not save. Try again.", "bad"); }
+      })
+      .catch(function () { btn.disabled = false; poolCancel(); setMsg("Network error. Try again.", "bad"); });
+  }
+</script>
+</body>
+</html>
