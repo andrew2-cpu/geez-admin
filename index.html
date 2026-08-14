@@ -50,15 +50,17 @@
   /* ---- billiard save animation (inline, no background) ---- */
   #pool { display: none; margin-top: 14px; }
   #pool.on { display: block; }
-  .lane { position: relative; width: 100%; max-width: 300px; height: 44px; margin: 0 auto; }
+  .lane { position: relative; width: 100%; max-width: 320px; height: 44px; margin: 0 auto; }
   .pball { position: absolute; top: 50%; transform: translateY(-50%); border-radius: 50%; }
-  .eight { width: 30px; height: 30px; left: 150px; background: radial-gradient(circle at 35% 30%, #333, #000); display: flex; align-items: center; justify-content: center; overflow: hidden; transition: opacity .12s, transform .12s; }
-  .eight.smash { opacity: 0; transform: translateY(-50%) scale(.2); }
-  .stick { position: absolute; top: 50%; height: 5px; width: 148px; left: 0; transform: translateY(-50%) translateX(0); background: #111; border-radius: 3px; transition: transform .8s ease-out; z-index: 1; }
-  .stick.pull { transform: translateY(-50%) translateX(-46px); }
-  .stick.shoot { transition: transform .12s ease-in; transform: translateY(-50%) translateX(8px); }
-  .frag { position: absolute; top: 50%; left: 152px; width: 8px; height: 8px; border-radius: 50%; background: #111; opacity: 0; }
-  .frag.blow { animation: fragfly .5s ease-out forwards; }
+  .gball { width: 32px; height: 32px; left: 120px; background: #269a9e; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 18px; box-shadow: inset -3px -3px 6px rgba(0,0,0,.25); transition: left .5s cubic-bezier(.3,.7,.4,1), opacity .12s, transform .12s; z-index: 2; }
+  .gball.roll { left: calc(100% - 34px); }
+  .gball.smash { opacity: 0; transform: translateY(-50%) scale(.2); }
+  .stick { position: absolute; top: 50%; height: 6px; width: 108px; left: 0; transform: translateY(-50%); background: #111; border-radius: 3px; z-index: 1; }
+  .stick.charging { animation: charge .7s ease-in-out infinite; }
+  @keyframes charge { 0%,100% { transform: translateY(-50%) translateX(0);} 50% { transform: translateY(-50%) translateX(-38px);} }
+  .stick.shoot { animation: none; transition: transform .1s ease-in; transform: translateY(-50%) translateX(16px); }
+  .frag { position: absolute; top: 50%; left: calc(100% - 30px); width: 8px; height: 8px; border-radius: 50%; background: #269a9e; opacity: 0; }
+  .frag.blow { animation: fragfly .55s ease-out forwards; }
   @keyframes fragfly { 0% { opacity: 1; transform: translate(0,-50%) scale(1);} 100% { opacity: 0; transform: translate(var(--fx), var(--fy)) scale(.3);} }
 </style>
 </head>
@@ -112,7 +114,7 @@
     <div id="pool">
       <div class="lane">
         <div class="stick" id="stick"></div>
-        <div class="pball eight" id="eight"><img src="data:image/png;base64,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" style="width:70%;height:auto;display:block;" alt="GEEZ"></div>
+        <div class="pball gball" id="ball">G</div>
         <div class="frag" id="f1"></div><div class="frag" id="f2"></div>
         <div class="frag" id="f3"></div><div class="frag" id="f4"></div>
         <div class="frag" id="f5"></div><div class="frag" id="f6"></div>
@@ -245,31 +247,36 @@
 
   // ---- billiard animation ----
   function poolStart() {
-    var p = document.getElementById("pool");
-    document.getElementById("eight").classList.remove("smash");
-    document.getElementById("stick").classList.remove("shoot");
+    var p = document.getElementById("pool"), stick = document.getElementById("stick"),
+        ball = document.getElementById("ball");
+    ball.classList.remove("smash", "roll");
+    stick.classList.remove("shoot");
     for (var i = 1; i <= 6; i++) document.getElementById("f" + i).classList.remove("blow");
     p.classList.add("on");
-    // pull the cue stick back slowly
-    setTimeout(function () { document.getElementById("stick").classList.add("pull"); }, 30);
+    // keep the cue pulling back and forth while saving (loading)
+    stick.classList.add("charging");
   }
   function poolShootThen(done) {
-    var stick = document.getElementById("stick");
-    stick.classList.remove("pull");
-    stick.classList.add("shoot");                 // lunge forward, hit the ball
-    setTimeout(function () {                        // ball shatters
-      document.getElementById("eight").classList.add("smash");
-      var dirs = [[40,-40],[55,10],[35,45],[-10,-50],[60,-15],[20,55]];
+    var stick = document.getElementById("stick"), ball = document.getElementById("ball");
+    stick.classList.remove("charging");
+    stick.classList.add("shoot");                    // strike the ball
+    setTimeout(function () { ball.classList.add("roll"); }, 90);   // ball rolls to the edge
+    setTimeout(function () {                          // explode at the edge
+      ball.classList.add("smash");
+      var dirs = [[38,-42],[50,12],[30,46],[-14,-50],[54,-16],[18,54]];
       for (var i = 1; i <= 6; i++) {
         var f = document.getElementById("f" + i);
         f.style.setProperty("--fx", dirs[i-1][0] + "px");
         f.style.setProperty("--fy", (dirs[i-1][1]) + "px");
         f.classList.add("blow");
       }
-    }, 130);
-    setTimeout(function () { document.getElementById("pool").classList.remove("on"); if (done) done(); }, 760);
+    }, 640);
+    setTimeout(function () { document.getElementById("pool").classList.remove("on"); if (done) done(); }, 1250);
   }
-  function poolCancel() { document.getElementById("pool").classList.remove("on"); }
+  function poolCancel() {
+    document.getElementById("stick").classList.remove("charging");
+    document.getElementById("pool").classList.remove("on");
+  }
 
   // ---- save ----
   function save() {
