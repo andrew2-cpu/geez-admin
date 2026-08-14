@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GEEZ Admin - Add Product</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: #f2f2f2; color: #222; margin: 0 auto; padding: 18px; max-width: 480px;
+  }
+  h1 { font-size: 18px; margin: 4px 0 2px; }
+  .sub { font-size: 12px; color: #777; margin-bottom: 18px; }
+  label { display: block; font-size: 13px; font-weight: 600; margin: 16px 0 5px; }
+  .row { display: flex; gap: 6px; }
+  input {
+    width: 100%; padding: 12px; font-size: 16px; border: 1px solid #bbb; border-radius: 6px; text-transform: uppercase;
+  }
+  input#pass, input#loginPass { text-transform: none; }
+  input:focus { outline: 2px solid #269a9e; border-color: #269a9e; }
+  button.mini {
+    flex-shrink: 0; border: 1px solid #269a9e; background: #fff; color: #269a9e;
+    border-radius: 6px; padding: 0 12px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .hint { font-size: 11px; color: #888; margin-top: 4px; }
+  .save {
+    width: 100%; margin-top: 22px; padding: 14px; font-size: 16px; font-weight: 700;
+    background: #269a9e; color: #fff; border: none; border-radius: 6px; cursor: pointer;
+  }
+  .save:disabled { opacity: .5; }
+  .msg { margin-top: 14px; font-size: 14px; font-weight: 600; min-height: 20px; }
+  .msg.ok { color: #1c8a4e; }
+  .msg.bad { color: #c0392b; }
+  #reader { margin-top: 10px; display: none; }
+  #reader.on { display: block; }
+  .remember { font-size: 12px; color: #777; margin-top: 8px; }
+  .remember input { width: auto; }
+  hr { border: none; border-top: 1px solid #ddd; margin: 18px 0 0; }
+  .hidden { display: none; }
+  .topbar { display: flex; justify-content: space-between; align-items: center; }
+  .logout { font-size: 12px; color: #269a9e; background: none; border: none; cursor: pointer; text-decoration: underline; }
+</style>
+</head>
+<body>
+
+  <!-- LOGIN SCREEN -->
+  <div id="loginScreen">
+    <h1>GEEZ Admin - Login</h1>
+    <div class="sub">Private tool. Enter your password once to start adding products.</div>
+    <label>Password</label>
+    <input type="password" id="loginPass" placeholder="Admin password" autocomplete="off">
+    <div class="remember"><label style="display:inline;font-weight:400;"><input type="checkbox" id="stayIn" checked> Keep me logged in on this phone</label></div>
+    <button class="save" id="loginBtn" onclick="doLogin()">Log In</button>
+    <div class="msg" id="loginMsg"></div>
+  </div>
+
+  <!-- ADD SCREEN -->
+  <div id="addScreen" class="hidden">
+    <div class="topbar">
+      <h1>GEEZ - Add Product</h1>
+      <button class="logout" onclick="logout()">Log out</button>
+    </div>
+    <div class="sub" id="counter">Logged in. Ready to add.</div>
+
+    <label>1. Shaft number</label>
+    <div class="row">
+      <input type="text" id="shaft" placeholder="Type shaft number" autocomplete="off" autocapitalize="characters">
+      <button class="mini" onclick="photoScan('shaft')">Photo</button>
+    </div>
+    <div class="hint">Photo = snap the printed number, it reads it. Always check &amp; fix before saving.</div>
+
+    <label>2. NFC number (butt bottom)</label>
+    <input type="text" id="nfc" placeholder="Type / paste NFC number" autocomplete="off" autocapitalize="characters">
+    <div class="hint">iPhone can't read NFC in a browser - read it in your NFC app, then paste here.</div>
+
+    <label>3. Box QR number</label>
+    <div class="row">
+      <input type="text" id="box" placeholder="Type box number" autocomplete="off" autocapitalize="characters">
+      <button class="mini" onclick="startScan('box')">Scan QR</button>
+      <button class="mini" onclick="photoScan('box')">Photo</button>
+    </div>
+
+    <div id="reader"></div>
+    <input type="file" id="ocrInput" accept="image/*" capture="environment" style="display:none">
+    <canvas id="ocrCanvas" style="display:none"></canvas>
+
+    <button class="save" id="saveBtn" onclick="save()">Save Product</button>
+    <div class="msg" id="msg"></div>
+  </div>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+  // ====================================================================
+  // Same Apps Script URL as your verify page:
+  var API_URL = "https://script.google.com/macros/s/AKfycbyMSY19jqIp3AUPJnnjif0gygImorhC_NRvp2amXFR6Pe3ZuvSqB-TtLQMfLY4kgVdG/exec";
+  // ====================================================================
+
+  var PASS = "";       // held in memory after login
+  var addedCount = 0;
+
+  function clean(v) { return v.trim().toUpperCase().replace(/\s+/g, ""); }
+  function setMsg(text, kind) { var m = document.getElementById("msg"); m.textContent = text; m.className = "msg " + (kind || ""); }
+  function setLoginMsg(text, kind) { var m = document.getElementById("loginMsg"); m.textContent = text; m.className = "msg " + (kind || ""); }
+
+  function showAdd() {
+    document.getElementById("loginScreen").classList.add("hidden");
+    document.getElementById("addScreen").classList.remove("hidden");
+    document.getElementById("shaft").focus();
+  }
+
+  // Auto-login if password saved on this phone
+  try {
+    var saved = localStorage.getItem("geezAdminPass");
+    if (saved) { PASS = saved; showAdd(); }
+  } catch (e) {}
+
+  // ---- LOGIN (checks password once, triggers your email alert) ----
+  function doLogin() {
+    var pass = document.getElementById("loginPass").value;
+    if (!pass) { setLoginMsg("Enter your password.", "bad"); return; }
+    var btn = document.getElementById("loginBtn");
+    btn.disabled = true; setLoginMsg("Checking...", "");
+    fetch(API_URL + "?action=login&key=" + encodeURIComponent(pass))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        btn.disabled = false;
+        if (data.ok) {
+          PASS = pass;
+          try { if (document.getElementById("stayIn").checked) localStorage.setItem("geezAdminPass", pass); } catch (e) {}
+          showAdd();
+        } else if (data.error === "locked") {
+          setLoginMsg("Too many wrong tries. Locked for a while. Try later.", "bad");
+        } else {
+          setLoginMsg("Wrong password.", "bad");
+        }
+      })
+      .catch(function () { btn.disabled = false; setLoginMsg("Network error. Try again.", "bad"); });
+  }
+
+  function logout() {
+    PASS = "";
+    try { localStorage.removeItem("geezAdminPass"); } catch (e) {}
+    document.getElementById("loginPass").value = "";
+    document.getElementById("addScreen").classList.add("hidden");
+    document.getElementById("loginScreen").classList.remove("hidden");
+    setLoginMsg("", "");
+  }
+
+  // ---- QR scanner ----
+  var qr = null, scanning = false;
+  function startScan(targetId) {
+    var readerEl = document.getElementById("reader");
+    if (scanning) { stopScan(); return; }
+    if (typeof Html5Qrcode === "undefined") { setMsg("Scanner not loaded - reload.", "bad"); return; }
+    readerEl.classList.add("on");
+    qr = new Html5Qrcode("reader"); scanning = true;
+    setMsg("Point camera at the QR code...", "");
+    qr.start({ facingMode: "environment" }, { fps: 10, qrbox: 220 },
+      function (t) { document.getElementById(targetId).value = t; setMsg("Scanned box number.", "ok"); stopScan(); },
+      function () {}
+    ).catch(function () { setMsg("Cannot open camera - allow access or type.", "bad"); readerEl.classList.remove("on"); scanning = false; });
+  }
+  function stopScan() {
+    if (qr && scanning) { qr.stop().then(function () { qr.clear(); }).catch(function () {}); }
+    document.getElementById("reader").classList.remove("on"); scanning = false;
+  }
+
+  // ---- OCR photo scan ----
+  var ocrTarget = null;
+  var ocrInput = document.getElementById("ocrInput");
+  function photoScan(targetId) {
+    if (typeof Tesseract === "undefined") { setMsg("Text reader not loaded - reload.", "bad"); return; }
+    ocrTarget = targetId; ocrInput.value = ""; ocrInput.click();
+  }
+  ocrInput.addEventListener("change", function () {
+    var file = ocrInput.files && ocrInput.files[0];
+    if (!file || !ocrTarget) return;
+    setMsg("Reading photo... please wait", "");
+    var img = new Image();
+    img.onload = function () {
+      var canvas = document.getElementById("ocrCanvas");
+      var scale = Math.min(1, 1400 / img.width);
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      Tesseract.recognize(canvas, "eng", { tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-" })
+        .then(function (res) {
+          var guess = ((res.data && res.data.text) || "").toUpperCase().replace(/[^A-Z0-9-]/g, "");
+          if (guess) { document.getElementById(ocrTarget).value = guess; setMsg("Read: " + guess + " - check & fix.", "ok"); }
+          else setMsg("Could not read it. Better light, or type it.", "bad");
+        }).catch(function () { setMsg("Reading failed - type the number.", "bad"); });
+    };
+    img.onerror = function () { setMsg("Could not open the photo.", "bad"); };
+    img.src = URL.createObjectURL(file);
+  });
+
+  // ---- Save (no password typing - uses PASS from login) ----
+  function save() {
+    var shaft = clean(document.getElementById("shaft").value);
+    var nfc = clean(document.getElementById("nfc").value);
+    var box = clean(document.getElementById("box").value);
+    if (!shaft || !nfc || !box) { setMsg("Fill all 3 numbers.", "bad"); return; }
+    var btn = document.getElementById("saveBtn");
+    btn.disabled = true; setMsg("Saving...", "");
+    var url = API_URL + "?action=add&key=" + encodeURIComponent(PASS)
+      + "&shaft=" + encodeURIComponent(shaft)
+      + "&nfc=" + encodeURIComponent(nfc)
+      + "&box=" + encodeURIComponent(box);
+    fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+      btn.disabled = false;
+      if (data.ok) {
+        addedCount++;
+        document.getElementById("counter").textContent = "Added this session: " + addedCount;
+        setMsg("Saved! Product added.", "ok");
+        document.getElementById("shaft").value = "";
+        document.getElementById("nfc").value = "";
+        document.getElementById("box").value = "";
+        document.getElementById("shaft").focus();
+      } else if (data.error === "wrong_password" || data.error === "locked") {
+        setMsg("Session expired. Please log in again.", "bad");
+        setTimeout(logout, 1200);
+      } else if (data.error === "duplicate_box") {
+        setMsg("This box number is already registered.", "bad");
+      } else if (data.error === "missing_fields") {
+        setMsg("Fill all 3 numbers.", "bad");
+      } else {
+        setMsg("Could not save. Try again.", "bad");
+      }
+    }).catch(function () { btn.disabled = false; setMsg("Network error. Try again.", "bad"); });
+  }
+</script>
+</body>
+</html>
