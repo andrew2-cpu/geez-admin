@@ -48,19 +48,15 @@
   .photo-ok { color: #1c8a4e; font-size: 12px; margin-left: 8px; }
   .dbg { margin-top: 8px; font-size: 11px; color: #b26a00; word-break: break-all; }
   /* ---- billiard save animation (inline, no background) ---- */
-  #pool { display: none; margin-top: 14px; }
+  #pool { display: none; margin-top: 14px; background: #ffffff; border: 1px solid #e2e2e2; border-radius: 10px; padding: 8px 0; }
   #pool.on { display: block; }
-  .lane { position: relative; width: 100%; max-width: 320px; height: 44px; margin: 0 auto; }
-  .pball { position: absolute; top: 50%; transform: translateY(-50%); border-radius: 50%; }
-  .gball { width: 32px; height: 32px; left: 120px; background: #269a9e; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 18px; box-shadow: inset -3px -3px 6px rgba(0,0,0,.25); transition: left .5s cubic-bezier(.3,.7,.4,1), opacity .12s, transform .12s; z-index: 2; }
-  .gball.roll { left: calc(100% - 34px); }
-  .gball.smash { opacity: 0; transform: translateY(-50%) scale(.2); }
-  .stick { position: absolute; top: 50%; height: 6px; width: 108px; left: 0; transform: translateY(-50%); background: #111; border-radius: 3px; z-index: 1; }
-  .stick.charging { animation: charge .7s ease-in-out infinite; }
-  @keyframes charge { 0%,100% { transform: translateY(-50%) translateX(0);} 50% { transform: translateY(-50%) translateX(-38px);} }
-  .stick.shoot { animation: none; transition: transform .1s ease-in; transform: translateY(-50%) translateX(16px); }
-  .frag { position: absolute; top: 50%; left: calc(100% - 30px); width: 8px; height: 8px; border-radius: 50%; background: #269a9e; opacity: 0; }
-  .frag.blow { animation: fragfly .55s ease-out forwards; }
+  .lane { position: relative; width: 100%; max-width: 300px; height: 40px; margin: 0 auto; }
+  .pball { position: absolute; top: 50%; border-radius: 50%; }
+  .gball { width: 24px; height: 24px; left: 130px; background: #232323; box-shadow: inset -2px -2px 5px rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; overflow: hidden; z-index: 2; transform: translateY(-50%) rotate(0deg); }
+  .stick { position: absolute; top: 50%; height: 6px; width: 112px; left: 6px; transform: translateY(-50%); background: linear-gradient(90deg,#111 0%,#111 92%,#9a9a9a 92%,#b8b8b8 100%); border-radius: 3px; z-index: 1; }
+  .frag { position: absolute; top: 50%; left: calc(100% - 24px); width: 7px; height: 7px; border-radius: 50%; background: #269a9e; opacity: 0; }
+  .frag:nth-child(even) { background: #232323; }
+  .frag.blow { animation: fragfly .5s ease-out forwards; }
   @keyframes fragfly { 0% { opacity: 1; transform: translate(0,-50%) scale(1);} 100% { opacity: 0; transform: translate(var(--fx), var(--fy)) scale(.3);} }
 </style>
 </head>
@@ -114,7 +110,7 @@
     <div id="pool">
       <div class="lane">
         <div class="stick" id="stick"></div>
-        <div class="pball gball" id="ball">G</div>
+        <div class="pball gball" id="ball"><svg width="16" height="16" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 8 H20 V14 H14 V20 H8 Z" fill="#ffffff"/><rect x="22" y="8" width="10" height="10" fill="none" stroke="#2aa7ab" stroke-width="2.6"/><rect x="8" y="22" width="10" height="10" fill="none" stroke="#2aa7ab" stroke-width="2.6"/><path d="M20 20 H32 V26 H26 V32 H20 Z" fill="#ffffff"/></svg></div>
         <div class="frag" id="f1"></div><div class="frag" id="f2"></div>
         <div class="frag" id="f3"></div><div class="frag" id="f4"></div>
         <div class="frag" id="f5"></div><div class="frag" id="f6"></div>
@@ -249,32 +245,49 @@
   function poolStart() {
     var p = document.getElementById("pool"), stick = document.getElementById("stick"),
         ball = document.getElementById("ball");
-    ball.classList.remove("smash", "roll");
-    stick.classList.remove("shoot");
     for (var i = 1; i <= 6; i++) document.getElementById("f" + i).classList.remove("blow");
+    // reset positions (inline styles drive the whole animation)
+    stick.style.transition = "none";
+    stick.style.transform = "translateY(-50%) translateX(0)";
+    ball.style.transition = "none";
+    ball.style.left = "130px";
+    ball.style.opacity = "1";
+    ball.style.transform = "translateY(-50%) rotate(0deg)";
     p.classList.add("on");
-    // keep the cue pulling back and forth while saving (loading)
-    stick.classList.add("charging");
+    void stick.offsetWidth;                          // force reflow so reset applies
+    // slow pull-back, one time (this is the "saving" state)
+    setTimeout(function () {
+      stick.style.transition = "transform 1.2s ease-out";
+      stick.style.transform = "translateY(-50%) translateX(-44px)";
+    }, 60);
   }
   function poolShootThen(done) {
     var stick = document.getElementById("stick"), ball = document.getElementById("ball");
-    stick.classList.remove("charging");
-    stick.classList.add("shoot");                    // strike the ball
-    setTimeout(function () { ball.classList.add("roll"); }, 90);   // ball rolls to the edge
-    setTimeout(function () {                          // explode at the edge
-      ball.classList.add("smash");
-      var dirs = [[38,-42],[50,12],[30,46],[-14,-50],[54,-16],[18,54]];
+    // fast strike
+    stick.style.transition = "transform .1s ease-in";
+    stick.style.transform = "translateY(-50%) translateX(16px)";
+    // ball rolls fast to the wall, spinning
+    setTimeout(function () {
+      ball.style.transition = "left .45s linear, transform .45s linear";
+      ball.style.left = "calc(100% - 26px)";
+      ball.style.transform = "translateY(-50%) rotate(1260deg)";
+    }, 100);
+    // explode at the wall
+    setTimeout(function () {
+      ball.style.transition = "opacity .1s, transform .1s";
+      ball.style.opacity = "0";
+      ball.style.transform = "translateY(-50%) scale(.2)";
+      var dirs = [[34,-38],[46,10],[26,42],[-14,-46],[50,-14],[16,50]];
       for (var i = 1; i <= 6; i++) {
         var f = document.getElementById("f" + i);
         f.style.setProperty("--fx", dirs[i-1][0] + "px");
-        f.style.setProperty("--fy", (dirs[i-1][1]) + "px");
+        f.style.setProperty("--fy", dirs[i-1][1] + "px");
         f.classList.add("blow");
       }
-    }, 640);
-    setTimeout(function () { document.getElementById("pool").classList.remove("on"); if (done) done(); }, 1250);
+    }, 560);
+    setTimeout(function () { document.getElementById("pool").classList.remove("on"); if (done) done(); }, 1200);
   }
   function poolCancel() {
-    document.getElementById("stick").classList.remove("charging");
     document.getElementById("pool").classList.remove("on");
   }
 
