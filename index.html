@@ -50,10 +50,10 @@
   /* ---- billiard save animation (inline, no background) ---- */
   #pool { display: none; margin-top: 14px; }
   #pool.on { display: block; }
-  .lane { position: relative; width: 100%; max-width: 300px; height: 40px; margin: 0 auto; overflow: hidden; }
+  .lane { position: relative; width: 100%; max-width: 440px; height: 40px; margin: 0 auto; overflow: hidden; }
   .pball { position: absolute; top: 50%; border-radius: 50%; }
-  .gball { width: 24px; height: 24px; left: 150px; background: #232323; box-shadow: inset -2px -2px 5px rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; overflow: hidden; z-index: 2; transform: translateY(-50%) rotate(0deg); }
-  .stick { position: absolute; top: 50%; height: 6px; width: 224px; left: -98px; transform: translateY(-50%); background: linear-gradient(90deg,#111 0%,#111 96%,#9a9a9a 96%,#b8b8b8 100%); border-radius: 3px; z-index: 1; }
+  .gball { width: 24px; height: 24px; left: 276px; background: #232323; box-shadow: inset -2px -2px 5px rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; overflow: hidden; z-index: 2; transform: translateY(-50%) rotate(0deg); }
+  .stick { position: absolute; top: 50%; height: 6px; width: 210px; left: 60px; transform: translateY(-50%); background: linear-gradient(90deg,#111 0%,#111 96%,#9a9a9a 96%,#b8b8b8 100%); border-radius: 3px; z-index: 1; }
   .frag { position: absolute; top: 50%; left: calc(100% - 24px); width: 7px; height: 7px; border-radius: 50%; background: #269a9e; opacity: 0; }
   .frag:nth-child(even) { background: #232323; }
   .frag.blow { animation: fragfly .5s ease-out forwards; }
@@ -250,28 +250,28 @@
     stick.style.transition = "none";
     stick.style.transform = "translateY(-50%) translateX(0)";
     ball.style.transition = "none";
-    ball.style.left = "150px";
+    ball.style.left = "276px";
     ball.style.opacity = "1";
     ball.style.transform = "translateY(-50%) rotate(0deg)";
     p.classList.add("on");
     void stick.offsetWidth;                          // force reflow so reset applies
-    // slow pull-back, one time (this is the "saving" state)
+    // keep drawing the cue back the whole time it's saving (caps at 6s)
     setTimeout(function () {
-      stick.style.transition = "transform 1.2s ease-out";
-      stick.style.transform = "translateY(-50%) translateX(-44px)";
+      stick.style.transition = "transform 6s linear";
+      stick.style.transform = "translateY(-50%) translateX(-60px)";
     }, 60);
   }
   function poolShootThen(done) {
     var stick = document.getElementById("stick"), ball = document.getElementById("ball");
-    // fast strike
-    stick.style.transition = "transform .1s ease-in";
-    stick.style.transform = "translateY(-50%) translateX(16px)";
+    // save succeeded -> shoot fast from wherever the cue is
+    stick.style.transition = "transform .12s ease-in";
+    stick.style.transform = "translateY(-50%) translateX(30px)";
     // ball rolls fast to the wall, spinning
     setTimeout(function () {
       ball.style.transition = "left .45s linear, transform .45s linear";
       ball.style.left = "calc(100% - 26px)";
       ball.style.transform = "translateY(-50%) rotate(1260deg)";
-    }, 100);
+    }, 120);
     // explode at the wall
     setTimeout(function () {
       ball.style.transition = "opacity .1s, transform .1s";
