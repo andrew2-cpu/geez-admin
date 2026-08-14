@@ -47,20 +47,17 @@
   .photo-btn { margin-top: 6px; font-size: 12px; padding: 7px 12px; }
   .photo-ok { color: #1c8a4e; font-size: 12px; margin-left: 8px; }
   .dbg { margin-top: 8px; font-size: 11px; color: #b26a00; word-break: break-all; }
-  /* ---- billiard save animation ---- */
-  #pool { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none; align-items: center; justify-content: center; z-index: 60; }
-  #pool.on { display: flex; }
-  .ptable { position: relative; width: 300px; height: 150px; background: radial-gradient(circle at 50% 40%, #2f9a5c, #1c6b3e); border: 9px solid #6b3f1f; border-radius: 16px; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,.4); }
+  /* ---- billiard save animation (inline, no background) ---- */
+  #pool { display: none; margin-top: 14px; }
+  #pool.on { display: block; }
+  .lane { position: relative; width: 100%; max-width: 300px; height: 44px; margin: 0 auto; }
   .pball { position: absolute; top: 50%; transform: translateY(-50%); border-radius: 50%; }
-  .cueball { width: 22px; height: 22px; left: 150px; background: radial-gradient(circle at 35% 30%, #fff, #d8d8d8); box-shadow: inset -3px -3px 6px rgba(0,0,0,.25); transition: left .30s cubic-bezier(.2,.85,.25,1); z-index: 2; }
-  .cueball.go { left: 222px; }
-  .eight { width: 27px; height: 27px; left: 250px; background: radial-gradient(circle at 35% 30%, #555, #000); display: flex; align-items: center; justify-content: center; transition: opacity .12s, transform .12s; }
-  .eight .num { width: 13px; height: 13px; background: #fff; border-radius: 50%; color: #000; font-size: 9px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+  .eight { width: 30px; height: 30px; left: 150px; background: radial-gradient(circle at 35% 30%, #333, #000); display: flex; align-items: center; justify-content: center; overflow: hidden; transition: opacity .12s, transform .12s; }
   .eight.smash { opacity: 0; transform: translateY(-50%) scale(.2); }
-  .stick { position: absolute; top: 50%; height: 6px; width: 140px; left: 8px; transform: translateY(-50%) translateX(0); transform-origin: right center; background: linear-gradient(90deg, #7a4e1e, #b07d3a 30%, #e8c98a); border-radius: 3px; transition: transform .8s ease-out; z-index: 1; }
-  .stick.pull { transform: translateY(-50%) translateX(-48px); }
-  .stick.shoot { transition: transform .12s ease-in; transform: translateY(-50%) translateX(6px); }
-  .frag { position: absolute; top: 50%; left: 250px; width: 8px; height: 8px; border-radius: 50%; background: #111; opacity: 0; }
+  .stick { position: absolute; top: 50%; height: 5px; width: 148px; left: 0; transform: translateY(-50%) translateX(0); background: #111; border-radius: 3px; transition: transform .8s ease-out; z-index: 1; }
+  .stick.pull { transform: translateY(-50%) translateX(-46px); }
+  .stick.shoot { transition: transform .12s ease-in; transform: translateY(-50%) translateX(8px); }
+  .frag { position: absolute; top: 50%; left: 152px; width: 8px; height: 8px; border-radius: 50%; background: #111; opacity: 0; }
   .frag.blow { animation: fragfly .5s ease-out forwards; }
   @keyframes fragfly { 0% { opacity: 1; transform: translate(0,-50%) scale(1);} 100% { opacity: 0; transform: translate(var(--fx), var(--fy)) scale(.3);} }
 </style>
@@ -110,20 +107,20 @@
     <canvas id="cv" style="display:none"></canvas>
 
     <button class="save" id="saveBtn" onclick="save()">Save Product</button>
+
+    <!-- billiard save animation (inline, under the button) -->
+    <div id="pool">
+      <div class="lane">
+        <div class="stick" id="stick"></div>
+        <div class="pball eight" id="eight"><img src="data:image/png;base64,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" style="width:70%;height:auto;display:block;" alt="GEEZ"></div>
+        <div class="frag" id="f1"></div><div class="frag" id="f2"></div>
+        <div class="frag" id="f3"></div><div class="frag" id="f4"></div>
+        <div class="frag" id="f5"></div><div class="frag" id="f6"></div>
+      </div>
+    </div>
+
     <div class="msg" id="msg"></div>
     <div class="dbg" id="dbg"></div>
-  </div>
-
-  <!-- billiard save animation -->
-  <div id="pool">
-    <div class="ptable">
-      <div class="stick" id="stick"></div>
-      <div class="pball cueball" id="cueball"></div>
-      <div class="pball eight" id="eight"><span class="num">8</span></div>
-      <div class="frag" id="f1"></div><div class="frag" id="f2"></div>
-      <div class="frag" id="f3"></div><div class="frag" id="f4"></div>
-      <div class="frag" id="f5"></div><div class="frag" id="f6"></div>
-    </div>
   </div>
 
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
@@ -249,7 +246,6 @@
   // ---- billiard animation ----
   function poolStart() {
     var p = document.getElementById("pool");
-    document.getElementById("cueball").classList.remove("go");
     document.getElementById("eight").classList.remove("smash");
     document.getElementById("stick").classList.remove("shoot");
     for (var i = 1; i <= 6; i++) document.getElementById("f" + i).classList.remove("blow");
@@ -260,9 +256,8 @@
   function poolShootThen(done) {
     var stick = document.getElementById("stick");
     stick.classList.remove("pull");
-    stick.classList.add("shoot");                 // lunge forward
-    setTimeout(function () { document.getElementById("cueball").classList.add("go"); }, 120); // cue ball rolls
-    setTimeout(function () {                        // hit -> 8-ball shatters
+    stick.classList.add("shoot");                 // lunge forward, hit the ball
+    setTimeout(function () {                        // ball shatters
       document.getElementById("eight").classList.add("smash");
       var dirs = [[40,-40],[55,10],[35,45],[-10,-50],[60,-15],[20,55]];
       for (var i = 1; i <= 6; i++) {
@@ -271,8 +266,8 @@
         f.style.setProperty("--fy", (dirs[i-1][1]) + "px");
         f.classList.add("blow");
       }
-    }, 400);
-    setTimeout(function () { document.getElementById("pool").classList.remove("on"); if (done) done(); }, 1050);
+    }, 130);
+    setTimeout(function () { document.getElementById("pool").classList.remove("on"); if (done) done(); }, 760);
   }
   function poolCancel() { document.getElementById("pool").classList.remove("on"); }
 
@@ -285,36 +280,4 @@
     var btn = document.getElementById("saveBtn"); btn.disabled = true; setMsg("Saving...", "");
     document.getElementById("dbg").textContent = "";
     poolStart();
-    var payload = { action: "add", key: PASS, shaft: shaft, nfc: nfc, box: box,
-      pshaft: photos.shaft || "", pnfc: photos.nfc || "", pbox: photos.box || "" };
-    fetch(API_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload) })
-      .then(function (r) { return r.json(); })
-      .then(function (d) {
-        btn.disabled = false;
-        if (d.ok) {
-          // shoot the 8-ball, then finish
-          poolShootThen(function () {
-            addedCount++;
-            document.getElementById("counter").textContent = "Added this session: " + addedCount;
-            setMsg("Saved!", "ok");
-            if (d.dbg) document.getElementById("dbg").textContent = "photo note: " + d.dbg;
-            photos = { shaft: "", nfc: "", box: "" };
-            ["okShaft", "okNfc", "okBox"].forEach(function (id) { document.getElementById(id).classList.add("hidden"); });
-            document.getElementById("shaft").value = "";
-            document.getElementById("nfc").value = "";
-            document.getElementById("box").value = "";
-            document.getElementById("shaft").focus();
-          });
-        } else if (d.error === "wrong_password" || d.error === "locked") {
-          poolCancel(); setMsg("Session expired - log in again.", "bad"); setTimeout(logout, 1200);
-        } else if (d.error === "duplicate_box") { poolCancel(); setMsg("This BOX number is already registered.", "bad"); }
-        else if (d.error === "duplicate_shaft") { poolCancel(); setMsg("This SHAFT number is already registered.", "bad"); }
-        else if (d.error === "duplicate_nfc") { poolCancel(); setMsg("This NFC number is already registered.", "bad"); }
-        else if (d.error === "missing_fields") { poolCancel(); setMsg("Fill all 3 numbers.", "bad"); }
-        else { poolCancel(); setMsg("Could not save. Try again.", "bad"); }
-      })
-      .catch(function () { btn.disabled = false; poolCancel(); setMsg("Network error. Try again.", "bad"); });
-  }
-</script>
-</body>
-</html>
+    var payload = { action: "add", key: PASS, shaft: shaft, nfc: nfc, bo
