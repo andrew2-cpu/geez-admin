@@ -230,14 +230,16 @@
     if (!shaft || !nfc || !box) { setMsg("Fill all 3 numbers.", "bad"); return; }
     var btn = document.getElementById("saveBtn"); btn.disabled = true; setMsg("Saving...", "");
 
-    var body = new URLSearchParams();
-    body.set("action", "add"); body.set("key", PASS);
-    body.set("shaft", shaft); body.set("nfc", nfc); body.set("box", box);
-    if (photos.shaft) body.set("pshaft", photos.shaft);
-    if (photos.nfc) body.set("pnfc", photos.nfc);
-    if (photos.box) body.set("pbox", photos.box);
+    var payload = {
+      action: "add", key: PASS, shaft: shaft, nfc: nfc, box: box,
+      pshaft: photos.shaft || "", pnfc: photos.nfc || "", pbox: photos.box || ""
+    };
 
-    fetch(API_URL, { method: "POST", body: body })
+    fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    })
       .then(function (r) { return r.json(); })
       .then(function (d) {
         btn.disabled = false;
