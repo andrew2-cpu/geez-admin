@@ -23,8 +23,6 @@
     flex-shrink: 0; border: 1px solid #269a9e; background: #fff; color: #269a9e;
     border-radius: 6px; padding: 0 12px; font-size: 13px; font-weight: 600; cursor: pointer;
   }
-  .photo-btn { margin-top: 6px; font-size: 12px; padding: 7px 12px; }
-  .photo-ok { color: #1c8a4e; font-size: 12px; margin-left: 8px; }
   .hint { font-size: 11px; color: #888; margin-top: 4px; }
   .save {
     width: 100%; margin-top: 22px; padding: 14px; font-size: 16px; font-weight: 700;
@@ -38,7 +36,6 @@
   .hidden { display: none; }
   .topbar { display: flex; justify-content: space-between; align-items: center; }
   .logout { font-size: 12px; color: #269a9e; background: none; border: none; cursor: pointer; text-decoration: underline; }
-  /* suggestions */
   .sugbox { position: relative; }
   .suglist {
     position: absolute; left: 0; right: 0; top: 100%; z-index: 5;
@@ -47,7 +44,9 @@
   }
   .sugitem { padding: 11px 12px; font-size: 15px; border-bottom: 1px solid #f0f0f0; cursor: pointer; }
   .sugitem:last-child { border-bottom: none; }
-  .sugitem b { color: #269a9e; }
+  .photo-btn { margin-top: 6px; font-size: 12px; padding: 7px 12px; }
+  .photo-ok { color: #1c8a4e; font-size: 12px; margin-left: 8px; }
+  .dbg { margin-top: 8px; font-size: 11px; color: #b26a00; word-break: break-all; }
 </style>
 </head>
 <body>
@@ -76,19 +75,19 @@
       <input type="text" id="shaft" placeholder="e.g. 55" autocomplete="off" autocapitalize="characters" oninput="onShaftType()">
       <div id="suglist" class="suglist hidden"></div>
     </div>
-    <button class="mini photo-btn" onclick="takePhoto('shaft')">Add photo (optional)</button><span class="photo-ok hidden" id="okShaft">photo added</span>
+    <button class="mini photo-btn" onclick="takePhoto('shaft')">Add photo</button><span class="photo-ok hidden" id="okShaft">photo added</span>
 
     <label>2. NFC number (paste the scanned URL)</label>
     <input type="text" id="nfc" placeholder="Paste URL or number" autocomplete="off" oninput="onNfcInput()">
     <div class="hint">Scan NFC, copy the URL it opens, paste here - the number after c= is taken automatically.</div>
-    <button class="mini photo-btn" onclick="takePhoto('nfc')">Add screenshot (optional)</button><span class="photo-ok hidden" id="okNfc">photo added</span>
+    <button class="mini photo-btn" onclick="takePhoto('nfc')">Add screenshot</button><span class="photo-ok hidden" id="okNfc">photo added</span>
 
     <label>3. Box number</label>
     <div class="row">
       <input type="text" id="box" placeholder="Type box number" autocomplete="off" autocapitalize="characters">
       <button class="mini" onclick="startScan('box')">Scan QR</button>
     </div>
-    <button class="mini photo-btn" onclick="takePhoto('box')">Add photo (optional)</button><span class="photo-ok hidden" id="okBox">photo added</span>
+    <button class="mini photo-btn" onclick="takePhoto('box')">Add photo</button><span class="photo-ok hidden" id="okBox">photo added</span>
     <div id="reader"></div>
 
     <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none">
@@ -96,6 +95,7 @@
 
     <button class="save" id="saveBtn" onclick="save()">Save Product</button>
     <div class="msg" id="msg"></div>
+    <div class="dbg" id="dbg"></div>
   </div>
 
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
@@ -144,7 +144,6 @@
     setLoginMsg("", "");
   }
 
-  // ---- load shaft list for search ----
   function loadShafts() {
     fetch(API_URL + "?action=shafts&key=" + encodeURIComponent(PASS))
       .then(function (r) { return r.json(); })
@@ -158,18 +157,16 @@
     if (!q || shaftList.length === 0) { box.classList.add("hidden"); box.innerHTML = ""; return; }
     var ends = [], has = [];
     for (var i = 0; i < shaftList.length; i++) {
-      var s = String(shaftList[i]).toUpperCase();
-      if (s.replace(/\s+/g, "").endsWith(q)) ends.push(shaftList[i]);
-      else if (s.replace(/\s+/g, "").indexOf(q) !== -1) has.push(shaftList[i]);
+      var s = String(shaftList[i]).toUpperCase().replace(/\s+/g, "");
+      if (s.endsWith(q)) ends.push(shaftList[i]);
+      else if (s.indexOf(q) !== -1) has.push(shaftList[i]);
     }
     var list = ends.concat(has).slice(0, 12);
     if (list.length === 0) { box.classList.add("hidden"); box.innerHTML = ""; return; }
     box.innerHTML = "";
     list.forEach(function (val) {
       var d = document.createElement("div");
-      d.className = "sugitem";
-      var up = String(val).toUpperCase(), pos = up.replace(/\s+/g, "").lastIndexOf(q);
-      d.textContent = val;
+      d.className = "sugitem"; d.textContent = val;
       d.onclick = function () {
         document.getElementById("shaft").value = val;
         box.classList.add("hidden"); box.innerHTML = "";
@@ -180,7 +177,6 @@
     box.classList.remove("hidden");
   }
 
-  // ---- NFC: pull number after c= ----
   function onNfcInput() {
     var el = document.getElementById("nfc");
     var m = el.value.match(/[?&]c=([^&\s]+)/i);
@@ -216,30 +212,23 @@
       cv.width = Math.round(img.width * scale);
       cv.height = Math.round(img.height * scale);
       cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
-      photos[photoTarget] = cv.toDataURL("image/jpeg", 0.4); // small "receipt" quality
+      photos[photoTarget] = cv.toDataURL("image/jpeg", 0.4);
       document.getElementById("ok" + photoTarget.charAt(0).toUpperCase() + photoTarget.slice(1)).classList.remove("hidden");
     };
     img.src = URL.createObjectURL(file);
   });
 
-  // ---- save (POST, includes photos if any) ----
+  // ---- save ----
   function save() {
     var shaft = clean(document.getElementById("shaft").value);
     var nfc = clean(document.getElementById("nfc").value);
     var box = clean(document.getElementById("box").value);
     if (!shaft || !nfc || !box) { setMsg("Fill all 3 numbers.", "bad"); return; }
     var btn = document.getElementById("saveBtn"); btn.disabled = true; setMsg("Saving...", "");
-
-    var payload = {
-      action: "add", key: PASS, shaft: shaft, nfc: nfc, box: box,
-      pshaft: photos.shaft || "", pnfc: photos.nfc || "", pbox: photos.box || ""
-    };
-
-    fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(payload)
-    })
+    document.getElementById("dbg").textContent = "";
+    var payload = { action: "add", key: PASS, shaft: shaft, nfc: nfc, box: box,
+      pshaft: photos.shaft || "", pnfc: photos.nfc || "", pbox: photos.box || "" };
+    fetch(API_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload) })
       .then(function (r) { return r.json(); })
       .then(function (d) {
         btn.disabled = false;
@@ -247,11 +236,12 @@
           addedCount++;
           document.getElementById("counter").textContent = "Added this session: " + addedCount;
           setMsg("Saved!", "ok");
+          if (d.dbg) document.getElementById("dbg").textContent = "photo note: " + d.dbg;
+          photos = { shaft: "", nfc: "", box: "" };
+          ["okShaft", "okNfc", "okBox"].forEach(function (id) { document.getElementById(id).classList.add("hidden"); });
           document.getElementById("shaft").value = "";
           document.getElementById("nfc").value = "";
           document.getElementById("box").value = "";
-          photos = { shaft: "", nfc: "", box: "" };
-          ["okShaft", "okNfc", "okBox"].forEach(function (id) { document.getElementById(id).classList.add("hidden"); });
           document.getElementById("shaft").focus();
         } else if (d.error === "wrong_password" || d.error === "locked") {
           setMsg("Session expired - log in again.", "bad"); setTimeout(logout, 1200);
