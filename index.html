@@ -1,236 +1,264 @@
-/**
- * GEEZ Serial system - verify + admin (shaft search, NFC, photos) + alerts + mapping
- *
- * TABS in your Google Sheet:
- *   - First tab  = products / verification. Headers (row 1, any order):
- *         shaft_number   nfc_number   box_number
- *     (extra columns temp_box_number, proof_shaft, proof_nfc, proof_box are
- *      created automatically - don't worry about them.)
- *   - A tab named "shaft number" = your master shaft list (numbers in column A).
- *
- * SET THESE:
- */
-var ADD_KEY = "123456";        // your admin password
-var OWNER_EMAIL = "geeztech.info@gmail.com";  // where login alerts go
-var SHAFT_SHEET = "shaft number";             // tab holding the master shaft list
-var DRIVE_FOLDER = "GEEZ proofs";             // Drive folder for proof photos
-var DATA_SHEET = "";        // "" = first tab (products / verification)
-var MAX_LEN = 80;
-var MAX_TRIES_PER_MIN = 30;
-var MAX_FAILS = 5;
-var LOCK_MINUTES = 15;
-
-function doGet(e) { return route(e); }
-function doPost(e) { return route(e); }
-
-function route(e) {
-  var p = (e && e.parameter) ? e.parameter : {};
-  if (p.action === "login") return login(p);
-  if (p.action === "shafts") return shafts(p);
-  if (p.action === "add") return addProduct(p);
-  return verify(p);
-}
-
-/* ---------- sheet menu tool: temp -> real box numbers ---------- */
-function onOpen() {
-  SpreadsheetApp.getUi()
-    .createMenu("GEEZ Tools")
-    .addItem("Replace temp box numbers with real", "syncRealNumbers")
-    .addToUi();
-}
-
-function syncRealNumbers() {
-  var ui = SpreadsheetApp.getUi();
-  try {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var main = getDataSheet_();
-    var map = ss.getSheetByName("mapping");
-    if (!map) { ui.alert('Make a tab named "mapping" with headers temp_number and real_number, then paste the factory list.'); return; }
-    var mrows = map.getDataRange().getValues();
-    var mhead = mrows[0].map(function (x) { return String(x).trim().toLowerCase(); });
-    var ti = mhead.indexOf("temp_number"), ri = mhead.indexOf("real_number");
-    if (ti === -1 || ri === -1) { ui.alert('The "mapping" tab needs headers: temp_number and real_number.'); return; }
-    var dict = {};
-    for (var m = 1; m < mrows.length; m++) {
-      var t = clean(mrows[m][ti]);
-      if (t && mrows[m][ri] !== "") dict[t] = String(mrows[m][ri]).trim();
-    }
-    var data = main.getDataRange().getValues();
-    if (data.length < 2) { ui.alert("No products found."); return; }
-    var head = data[0].map(function (x) { return String(x).trim().toLowerCase(); });
-    var boxCol = head.indexOf("box_number");
-    if (boxCol === -1) { ui.alert('No "box_number" column found.'); return; }
-    var tempCol = head.indexOf("temp_box_number");
-    if (tempCol === -1) { tempCol = data[0].length; main.getRange(1, tempCol + 1).setValue("temp_box_number"); }
-    var replaced = 0, notFound = 0;
-    for (var r = 1; r < data.length; r++) {
-      var cur = clean(data[r][boxCol]);
-      if (!cur) continue;
-      if (dict.hasOwnProperty(cur)) {
-        main.getRange(r + 1, tempCol + 1).setValue(data[r][boxCol]);
-        main.getRange(r + 1, boxCol + 1).setValue(dict[cur]);
-        replaced++;
-      } else { notFound++; }
-    }
-    ui.alert("Done.\nReplaced: " + replaced + "\nNot found: " + notFound + "\nOld temps saved in temp_box_number.");
-  } catch (err) { ui.alert("Error: " + err); }
-}
-
-/* ---------- admin login ---------- */
-function login(p) {
-  try {
-    if (isLocked_()) return json_({ ok: false, error: "locked" });
-    if (String(p.key || "") !== ADD_KEY) {
-      var f = bumpFails_();
-      notify_("GEEZ admin: FAILED login", "Wrong password at " + now_() + ". Attempts: " + f);
-      return json_({ ok: false, error: "wrong_password" });
-    }
-    resetFails_();
-    notify_("GEEZ admin: login", "Login at " + now_() + ". If this was not you, change your password.");
-    return json_({ ok: true });
-  } catch (err) { return json_({ ok: false, error: "server" }); }
-}
-
-/* ---------- shaft list for autocomplete ---------- */
-function shafts(p) {
-  try {
-    if (String(p.key || "") !== ADD_KEY) return json_({ ok: false, error: "wrong_password" });
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var sh = findSheet_(ss, SHAFT_SHEET);
-    if (!sh) return json_({ ok: true, shafts: [] });
-    var vals = sh.getDataRange().getValues();
-    var list = [];
-    for (var r = 0; r < vals.length; r++) {
-      var v = String(vals[r][0] == null ? "" : vals[r][0]).trim();
-      if (!v) continue;
-      if (r === 0 && v.toLowerCase().indexOf("shaft") !== -1) continue; // skip header
-      list.push(v);
-    }
-    return json_({ ok: true, shafts: list });
-  } catch (err) { return json_({ ok: false, error: "server" }); }
-}
-
-/* ---------- customer verify ---------- */
-function verify(p) {
-  var out = { valid: false };
-  try {
-    if (!allowRequest_()) return json_({ valid: false, error: "busy" });
-    var shaft = clean(p.shaft), nfc = clean(p.nfc), box = clean(p.box);
-    if (!shaft || !nfc || !box) return json_(out);
-    var sheet = getDataSheet_();
-    if (!sheet) return json_(out);
-    var data = sheet.getDataRange().getValues();
-    if (data.length < 2) return json_(out);
-    var idx = headerIndexes_(data[0]);
-    if (idx.shaft === -1 || idx.nfc === -1 || idx.box === -1) return json_(out);
-    for (var r = 1; r < data.length; r++) {
-      if (clean(data[r][idx.shaft]) === shaft &&
-          clean(data[r][idx.nfc]) === nfc &&
-          clean(data[r][idx.box]) === box) { out.valid = true; break; }
-    }
-  } catch (err) { out = { valid: false }; }
-  return json_(out);
-}
-
-/* ---------- admin add (with optional photos) ---------- */
-function addProduct(p) {
-  try {
-    if (isLocked_()) return json_({ ok: false, error: "locked" });
-    if (String(p.key || "") !== ADD_KEY) { bumpFails_(); return json_({ ok: false, error: "wrong_password" }); }
-    var shaft = clean(p.shaft), nfc = clean(p.nfc), box = clean(p.box);
-    if (!shaft || !nfc || !box) return json_({ ok: false, error: "missing_fields" });
-    if (shaft.length > MAX_LEN || nfc.length > MAX_LEN || box.length > MAX_LEN) return json_({ ok: false, error: "too_long" });
-
-    var sheet = getDataSheet_();
-    if (!sheet) return json_({ ok: false, error: "no_sheet" });
-    var data = sheet.getDataRange().getValues();
-    if (data.length === 0 || (data.length === 1 && data[0].join("") === "")) {
-      sheet.getRange(1, 1, 1, 3).setValues([["shaft_number", "nfc_number", "box_number"]]);
-      data = sheet.getDataRange().getValues();
-    }
-    var idx = headerIndexes_(data[0]);
-    if (idx.shaft === -1 || idx.nfc === -1 || idx.box === -1) return json_({ ok: false, error: "bad_headers" });
-
-    for (var r = 1; r < data.length; r++) {
-      if (clean(data[r][idx.box]) === box) return json_({ ok: false, error: "duplicate_box" });
-    }
-
-    // upload optional photos, get links
-    var linkShaft = p.pshaft ? savePhoto_(p.pshaft, shaft + "_shaft") : "";
-    var linkNfc   = p.pnfc   ? savePhoto_(p.pnfc,   shaft + "_nfc")   : "";
-    var linkBox   = p.pbox   ? savePhoto_(p.pbox,   shaft + "_box")   : "";
-
-    var cShaftPhoto = ensureCol_(sheet, "proof_shaft");
-    var cNfcPhoto   = ensureCol_(sheet, "proof_nfc");
-    var cBoxPhoto   = ensureCol_(sheet, "proof_box");
-
-    var width = sheet.getLastColumn();
-    var row = new Array(width).fill("");
-    row[idx.shaft] = shaft; row[idx.nfc] = nfc; row[idx.box] = box;
-    row[cShaftPhoto] = linkShaft; row[cNfcPhoto] = linkNfc; row[cBoxPhoto] = linkBox;
-    sheet.appendRow(row);
-    return json_({ ok: true });
-  } catch (err) { return json_({ ok: false, error: "server" }); }
-}
-
-/* ---------- helpers ---------- */
-function getDataSheet_() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  return DATA_SHEET ? ss.getSheetByName(DATA_SHEET) : ss.getSheets()[0];
-}
-function findSheet_(ss, name) {
-  var s = ss.getSheetByName(name);
-  if (s) return s;
-  var all = ss.getSheets();
-  for (var i = 0; i < all.length; i++) {
-    if (all[i].getName().trim().toLowerCase() === String(name).trim().toLowerCase()) return all[i];
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GEEZ Admin - Add Product</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: #f2f2f2; color: #222; margin: 0 auto; padding: 18px; max-width: 480px;
   }
-  return null;
-}
-function headerIndexes_(headerRow) {
-  var h = headerRow.map(function (x) { return String(x).trim().toLowerCase(); });
-  return { shaft: h.indexOf("shaft_number"), nfc: h.indexOf("nfc_number"), box: h.indexOf("box_number") };
-}
-function ensureCol_(sheet, name) {
-  var head = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getValues()[0]
-             .map(function (x) { return String(x).trim().toLowerCase(); });
-  var i = head.indexOf(name.toLowerCase());
-  if (i !== -1) return i;
-  var col = sheet.getLastColumn();
-  sheet.getRange(1, col + 1).setValue(name);
-  return col;
-}
-function savePhoto_(dataUrl, name) {
-  try {
-    var m = String(dataUrl).match(/^data:([^;]+);base64,(.*)$/);
-    if (!m) return "";
-    var blob = Utilities.newBlob(Utilities.base64Decode(m[2]), m[1], name + ".jpg");
-    var folder = getFolder_();
-    var file = folder.createFile(blob);
-    return file.getUrl();
-  } catch (e) { return ""; }
-}
-function getFolder_() {
-  var it = DriveApp.getFoldersByName(DRIVE_FOLDER);
-  return it.hasNext() ? it.next() : DriveApp.createFolder(DRIVE_FOLDER);
-}
-function clean(v) { if (v === null || v === undefined) return ""; return String(v).toUpperCase().replace(/\s+/g, ""); }
-function json_(obj) { return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON); }
-function now_() { return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss"); }
-function notify_(s, b) { try { if (OWNER_EMAIL) MailApp.sendEmail(OWNER_EMAIL, s, b); } catch (e) {} }
-function allowRequest_() {
-  try {
-    var c = CacheService.getScriptCache(), k = "rl_" + Math.floor(Date.now() / 60000);
-    var n = parseInt(c.get(k) || "0", 10);
-    if (n >= MAX_TRIES_PER_MIN) return false;
-    c.put(k, String(n + 1), 90); return true;
-  } catch (e) { return true; }
-}
-function bumpFails_() {
-  var c = CacheService.getScriptCache(), n = parseInt(c.get("fails") || "0", 10) + 1;
-  c.put("fails", String(n), LOCK_MINUTES * 60);
-  if (n >= MAX_FAILS) c.put("locked", "1", LOCK_MINUTES * 60);
-  return n;
-}
-function resetFails_() { var c = CacheService.getScriptCache(); c.remove("fails"); c.remove("locked"); }
-function isLocked_() { try { return CacheService.getScriptCache().get("locked") === "1"; } catch (e) { return false; } }
+  h1 { font-size: 18px; margin: 4px 0 2px; }
+  .sub { font-size: 12px; color: #777; margin-bottom: 16px; }
+  label { display: block; font-size: 13px; font-weight: 600; margin: 16px 0 5px; }
+  .row { display: flex; gap: 6px; }
+  input {
+    width: 100%; padding: 12px; font-size: 16px; border: 1px solid #bbb; border-radius: 6px; text-transform: uppercase;
+  }
+  input#loginPass { text-transform: none; }
+  input:focus { outline: 2px solid #269a9e; border-color: #269a9e; }
+  button.mini {
+    flex-shrink: 0; border: 1px solid #269a9e; background: #fff; color: #269a9e;
+    border-radius: 6px; padding: 0 12px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .photo-btn { margin-top: 6px; font-size: 12px; padding: 7px 12px; }
+  .photo-ok { color: #1c8a4e; font-size: 12px; margin-left: 8px; }
+  .hint { font-size: 11px; color: #888; margin-top: 4px; }
+  .save {
+    width: 100%; margin-top: 22px; padding: 14px; font-size: 16px; font-weight: 700;
+    background: #269a9e; color: #fff; border: none; border-radius: 6px; cursor: pointer;
+  }
+  .save:disabled { opacity: .5; }
+  .msg { margin-top: 14px; font-size: 14px; font-weight: 600; min-height: 20px; }
+  .msg.ok { color: #1c8a4e; }
+  .msg.bad { color: #c0392b; }
+  .remember { font-size: 12px; color: #777; margin-top: 8px; }
+  .hidden { display: none; }
+  .topbar { display: flex; justify-content: space-between; align-items: center; }
+  .logout { font-size: 12px; color: #269a9e; background: none; border: none; cursor: pointer; text-decoration: underline; }
+  /* suggestions */
+  .sugbox { position: relative; }
+  .suglist {
+    position: absolute; left: 0; right: 0; top: 100%; z-index: 5;
+    background: #fff; border: 1px solid #ccc; border-radius: 6px; margin-top: 2px;
+    max-height: 200px; overflow-y: auto; box-shadow: 0 6px 20px rgba(0,0,0,.12);
+  }
+  .sugitem { padding: 11px 12px; font-size: 15px; border-bottom: 1px solid #f0f0f0; cursor: pointer; }
+  .sugitem:last-child { border-bottom: none; }
+  .sugitem b { color: #269a9e; }
+</style>
+</head>
+<body>
+
+  <!-- LOGIN -->
+  <div id="loginScreen">
+    <h1>GEEZ Admin - Login</h1>
+    <div class="sub">Enter your password once to start.</div>
+    <label>Password</label>
+    <input type="password" id="loginPass" placeholder="Admin password" autocomplete="off">
+    <div class="remember"><label style="display:inline;font-weight:400;"><input type="checkbox" id="stayIn" checked style="width:auto"> Keep me logged in on this phone</label></div>
+    <button class="save" id="loginBtn" onclick="doLogin()">Log In</button>
+    <div class="msg" id="loginMsg"></div>
+  </div>
+
+  <!-- ADD -->
+  <div id="addScreen" class="hidden">
+    <div class="topbar">
+      <h1>GEEZ - Add Product</h1>
+      <button class="logout" onclick="logout()">Log out</button>
+    </div>
+    <div class="sub" id="counter">Ready to add.</div>
+
+    <label>1. Shaft number (type last digits to find)</label>
+    <div class="sugbox">
+      <input type="text" id="shaft" placeholder="e.g. 55" autocomplete="off" autocapitalize="characters" oninput="onShaftType()">
+      <div id="suglist" class="suglist hidden"></div>
+    </div>
+    <button class="mini photo-btn" onclick="takePhoto('shaft')">Add photo (optional)</button><span class="photo-ok hidden" id="okShaft">photo added</span>
+
+    <label>2. NFC number (paste the scanned URL)</label>
+    <input type="text" id="nfc" placeholder="Paste URL or number" autocomplete="off" oninput="onNfcInput()">
+    <div class="hint">Scan NFC, copy the URL it opens, paste here - the number after c= is taken automatically.</div>
+    <button class="mini photo-btn" onclick="takePhoto('nfc')">Add screenshot (optional)</button><span class="photo-ok hidden" id="okNfc">photo added</span>
+
+    <label>3. Box number</label>
+    <div class="row">
+      <input type="text" id="box" placeholder="Type box number" autocomplete="off" autocapitalize="characters">
+      <button class="mini" onclick="startScan('box')">Scan QR</button>
+    </div>
+    <button class="mini photo-btn" onclick="takePhoto('box')">Add photo (optional)</button><span class="photo-ok hidden" id="okBox">photo added</span>
+    <div id="reader"></div>
+
+    <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none">
+    <canvas id="cv" style="display:none"></canvas>
+
+    <button class="save" id="saveBtn" onclick="save()">Save Product</button>
+    <div class="msg" id="msg"></div>
+  </div>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+  var API_URL = "https://script.google.com/macros/s/AKfycbyngADT9OF65jJaBTN7M4_7Vyxdey0ADPwpLB0d2peHZkz5M1VCQVtwsZiRbSyJIbQ/exec";
+
+  var PASS = "", addedCount = 0, shaftList = [];
+  var photos = { shaft: "", nfc: "", box: "" };
+
+  function clean(v) { return v.trim().toUpperCase().replace(/\s+/g, ""); }
+  function setMsg(t, k) { var m = document.getElementById("msg"); m.textContent = t; m.className = "msg " + (k || ""); }
+  function setLoginMsg(t, k) { var m = document.getElementById("loginMsg"); m.textContent = t; m.className = "msg " + (k || ""); }
+
+  function showAdd() {
+    document.getElementById("loginScreen").classList.add("hidden");
+    document.getElementById("addScreen").classList.remove("hidden");
+    loadShafts();
+    document.getElementById("shaft").focus();
+  }
+
+  try { var s = localStorage.getItem("geezAdminPass"); if (s) { PASS = s; showAdd(); } } catch (e) {}
+
+  function doLogin() {
+    var pass = document.getElementById("loginPass").value;
+    if (!pass) { setLoginMsg("Enter your password.", "bad"); return; }
+    var btn = document.getElementById("loginBtn"); btn.disabled = true; setLoginMsg("Checking...", "");
+    fetch(API_URL + "?action=login&key=" + encodeURIComponent(pass))
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        btn.disabled = false;
+        if (d.ok) {
+          PASS = pass;
+          try { if (document.getElementById("stayIn").checked) localStorage.setItem("geezAdminPass", pass); } catch (e) {}
+          showAdd();
+        } else if (d.error === "locked") { setLoginMsg("Locked - too many wrong tries. Try later.", "bad"); }
+        else { setLoginMsg("Wrong password.", "bad"); }
+      })
+      .catch(function () { btn.disabled = false; setLoginMsg("Network error. Try again.", "bad"); });
+  }
+
+  function logout() {
+    PASS = ""; try { localStorage.removeItem("geezAdminPass"); } catch (e) {}
+    document.getElementById("loginPass").value = "";
+    document.getElementById("addScreen").classList.add("hidden");
+    document.getElementById("loginScreen").classList.remove("hidden");
+    setLoginMsg("", "");
+  }
+
+  // ---- load shaft list for search ----
+  function loadShafts() {
+    fetch(API_URL + "?action=shafts&key=" + encodeURIComponent(PASS))
+      .then(function (r) { return r.json(); })
+      .then(function (d) { if (d.ok && d.shafts) shaftList = d.shafts; })
+      .catch(function () {});
+  }
+
+  function onShaftType() {
+    var q = clean(document.getElementById("shaft").value);
+    var box = document.getElementById("suglist");
+    if (!q || shaftList.length === 0) { box.classList.add("hidden"); box.innerHTML = ""; return; }
+    var ends = [], has = [];
+    for (var i = 0; i < shaftList.length; i++) {
+      var s = String(shaftList[i]).toUpperCase();
+      if (s.replace(/\s+/g, "").endsWith(q)) ends.push(shaftList[i]);
+      else if (s.replace(/\s+/g, "").indexOf(q) !== -1) has.push(shaftList[i]);
+    }
+    var list = ends.concat(has).slice(0, 12);
+    if (list.length === 0) { box.classList.add("hidden"); box.innerHTML = ""; return; }
+    box.innerHTML = "";
+    list.forEach(function (val) {
+      var d = document.createElement("div");
+      d.className = "sugitem";
+      var up = String(val).toUpperCase(), pos = up.replace(/\s+/g, "").lastIndexOf(q);
+      d.textContent = val;
+      d.onclick = function () {
+        document.getElementById("shaft").value = val;
+        box.classList.add("hidden"); box.innerHTML = "";
+        document.getElementById("nfc").focus();
+      };
+      box.appendChild(d);
+    });
+    box.classList.remove("hidden");
+  }
+
+  // ---- NFC: pull number after c= ----
+  function onNfcInput() {
+    var el = document.getElementById("nfc");
+    var m = el.value.match(/[?&]c=([^&\s]+)/i);
+    if (m) el.value = m[1];
+  }
+
+  // ---- QR scan (box) ----
+  var qr = null, scanning = false;
+  function startScan(id) {
+    var el = document.getElementById("reader");
+    if (scanning) { stopScan(); return; }
+    if (typeof Html5Qrcode === "undefined") { setMsg("Scanner not loaded - reload.", "bad"); return; }
+    el.style.display = "block";
+    qr = new Html5Qrcode("reader"); scanning = true; setMsg("Point at the QR code...", "");
+    qr.start({ facingMode: "environment" }, { fps: 10, qrbox: 220 },
+      function (t) { document.getElementById(id).value = t; setMsg("Scanned.", "ok"); stopScan(); },
+      function () {}
+    ).catch(function () { setMsg("Cannot open camera - type instead.", "bad"); el.style.display = "none"; scanning = false; });
+  }
+  function stopScan() { if (qr && scanning) { qr.stop().then(function () { qr.clear(); }).catch(function () {}); } document.getElementById("reader").style.display = "none"; scanning = false; }
+
+  // ---- optional compressed photo ----
+  var photoTarget = null;
+  var photoInput = document.getElementById("photoInput");
+  function takePhoto(which) { photoTarget = which; photoInput.value = ""; photoInput.click(); }
+  photoInput.addEventListener("change", function () {
+    var file = photoInput.files && photoInput.files[0];
+    if (!file || !photoTarget) return;
+    var img = new Image();
+    img.onload = function () {
+      var cv = document.getElementById("cv");
+      var scale = Math.min(1, 700 / img.width);
+      cv.width = Math.round(img.width * scale);
+      cv.height = Math.round(img.height * scale);
+      cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+      photos[photoTarget] = cv.toDataURL("image/jpeg", 0.4); // small "receipt" quality
+      document.getElementById("ok" + photoTarget.charAt(0).toUpperCase() + photoTarget.slice(1)).classList.remove("hidden");
+    };
+    img.src = URL.createObjectURL(file);
+  });
+
+  // ---- save (POST, includes photos if any) ----
+  function save() {
+    var shaft = clean(document.getElementById("shaft").value);
+    var nfc = clean(document.getElementById("nfc").value);
+    var box = clean(document.getElementById("box").value);
+    if (!shaft || !nfc || !box) { setMsg("Fill all 3 numbers.", "bad"); return; }
+    var btn = document.getElementById("saveBtn"); btn.disabled = true; setMsg("Saving...", "");
+
+    var body = new URLSearchParams();
+    body.set("action", "add"); body.set("key", PASS);
+    body.set("shaft", shaft); body.set("nfc", nfc); body.set("box", box);
+    if (photos.shaft) body.set("pshaft", photos.shaft);
+    if (photos.nfc) body.set("pnfc", photos.nfc);
+    if (photos.box) body.set("pbox", photos.box);
+
+    fetch(API_URL, { method: "POST", body: body })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        btn.disabled = false;
+        if (d.ok) {
+          addedCount++;
+          document.getElementById("counter").textContent = "Added this session: " + addedCount;
+          setMsg("Saved!", "ok");
+          document.getElementById("shaft").value = "";
+          document.getElementById("nfc").value = "";
+          document.getElementById("box").value = "";
+          photos = { shaft: "", nfc: "", box: "" };
+          ["okShaft", "okNfc", "okBox"].forEach(function (id) { document.getElementById(id).classList.add("hidden"); });
+          document.getElementById("shaft").focus();
+        } else if (d.error === "wrong_password" || d.error === "locked") {
+          setMsg("Session expired - log in again.", "bad"); setTimeout(logout, 1200);
+        } else if (d.error === "duplicate_box") { setMsg("This box number is already registered.", "bad"); }
+        else if (d.error === "missing_fields") { setMsg("Fill all 3 numbers.", "bad"); }
+        else { setMsg("Could not save. Try again.", "bad"); }
+      })
+      .catch(function () { btn.disabled = false; setMsg("Network error. Try again.", "bad"); });
+  }
+</script>
+</body>
+</html>
