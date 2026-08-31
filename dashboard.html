@@ -81,6 +81,7 @@
   .panel{ background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:18px; }
   .panel h3{ font-size:14px; margin:0 0 4px; font-weight:700; }
   .panel .psub{ font-size:11px; color:var(--muted2); margin-bottom:12px; }
+  .chartWrap{ position:relative; height:300px; width:100%; }
   .donutWrap{ position:relative; height:190px; }
   .donutCenter{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none; }
   .donutCenter .n{ font-size:26px; font-weight:800; }
@@ -180,7 +181,7 @@
         <div class="panel">
           <h3 id="chartTitle">Registrations by month</h3>
           <div class="psub" id="chartSub"></div>
-          <canvas id="chart" height="150"></canvas>
+          <div class="chartWrap"><canvas id="chart"></canvas></div>
         </div>
         <div class="panel">
           <h3>Side split</h3>
