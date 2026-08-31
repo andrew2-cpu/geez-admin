@@ -140,16 +140,17 @@
       <div class="topbar">
         <div><div class="crumb">Dashboards / <b id="crumbView">Orders</b></div><div class="h2" id="pageTitle">Orders</div></div>
         <div class="topbtns">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#9fb0a8;"><input type="checkbox" id="incSerials" checked style="width:auto"> serials in PDF</label>
           <button class="btnpdf" onclick="downloadPDF()">⬇ Download PDF</button>
           <button class="iconbtn" onclick="loadStats()" title="Refresh">↻</button>
         </div>
       </div>
 
       <div class="cards">
-        <div class="card total"><div class="k" id="kTotalLabel">Total</div><div class="v" id="kTotal">0</div><div class="s" id="sRange"></div></div>
-        <div class="card mine"><div class="k"><span class="dot mine"></span>My side</div><div class="v" id="kMine">0</div><div class="s" id="sMine">0%</div></div>
-        <div class="card china"><div class="k"><span class="dot china"></span>China side</div><div class="v" id="kChina">0</div><div class="s" id="sChina">0%</div></div>
-        <div class="card month"><div class="k">This month</div><div class="v" id="kMonth">0</div><div class="s" id="sMonth"></div></div>
+        <div class="card"><div class="k" id="c1k">Total</div><div class="v" id="c1v">0</div><div class="s" id="c1s"></div></div>
+        <div class="card"><div class="k" id="c2k">—</div><div class="v" id="c2v">0</div><div class="s" id="c2s"></div></div>
+        <div class="card"><div class="k" id="c3k">—</div><div class="v" id="c3v">0</div><div class="s" id="c3s"></div></div>
+        <div class="card"><div class="k" id="c4k">—</div><div class="v" id="c4v">0</div><div class="s" id="c4s"></div></div>
       </div>
 
       <div class="filters">
@@ -161,7 +162,7 @@
             <button data-v="Jump" onclick="setType('Jump')">Jump</button>
           </div>
         </div>
-        <div class="fgroup"><label>Side</label>
+        <div class="fgroup" id="sideFilter"><label>Side</label>
           <div class="seg" id="segSide">
             <button data-v="total" class="on" onclick="setSide('total')">Total</button>
             <button data-v="owner" onclick="setSide('owner')">Mine</button>
@@ -205,7 +206,7 @@
         <h3>Breakdown</h3>
         <div class="psub">Counts per period in the selected range</div>
         <table>
-          <thead><tr><th id="thPeriod">Month</th><th class="num">My side</th><th class="num">China</th><th class="num">Total</th></tr></thead>
+          <thead id="tblHead"></thead>
           <tbody id="tbody"></tbody>
         </table>
       </div>
@@ -271,7 +272,7 @@
       .then(function(r){ return r.json(); })
       .then(function(d){
         if (!d.ok){ if (d.error==="wrong_password"){ logout(); } return; }
-        ROWS = (d.rows||[]).map(function(x){ var p=parseCode(x.code); return { d:x.d||"", side:x.side, type:p.type, omonth:p.omonth }; });
+        ROWS = (d.rows||[]).map(function(x){ var p=parseCode(x.code); return { d:x.d||"", side:x.side, type:p.type, omonth:p.omonth, code:x.code||"" }; });
         initDates(); render();
       })
       .catch(function(){});
@@ -325,56 +326,72 @@
   }
 
   function render(){
-    var from=el("from").value, to=el("to").value;
-    el("sRange").textContent=(from&&to)?(from+" → "+to):"";
-    el("kTotalLabel").textContent = basis==="orders" ? "Total orders" : "Total registered";
+    var from=el("from").value, to=el("to").value, rangeTxt=(from&&to)?(from+" → "+to):"";
+    el("sideFilter").style.display = (basis==="orders") ? "none" : "";
 
-    var f = filtered();
+    var f=filtered();
     var mine=f.filter(function(x){return x.side==="owner";}).length;
     var china=f.filter(function(x){return x.side==="dist";}).length;
     var total=mine+china;
-    el("kTotal").textContent=total;
-    el("kMine").textContent=mine; el("sMine").textContent=pct(mine,total)+" of total";
-    el("kChina").textContent=china; el("sChina").textContent=pct(china,total)+" of total";
+
+    var tc={Break:0,Play:0,Jump:0,Other:0};
+    f.forEach(function(x){ tc[x.type]=(tc[x.type]||0)+1; });
 
     var cm=todayStr().slice(0,7);
-    var monthCount = (basis==="orders")
+    var monthCount=(basis==="orders")
       ? ROWS.filter(function(x){ return x.omonth===cm && passType(x); }).length
       : ROWS.filter(function(x){ return x.d.slice(0,7)===cm && passType(x); }).length;
-    el("kMonth").textContent=monthCount; el("sMonth").textContent=cm+(basis==="orders"?" orders":" registered");
 
-    // group by period
+    if (basis==="orders"){
+      setCard(1,"Total orders",total,rangeTxt,"#eafffb");
+      setCard(2,"Break cues",tc.Break,"","#33c0c4");
+      setCard(3,"Play cues",tc.Play,"","#5ec8cd");
+      setCard(4,"Jump cues",tc.Jump,"","#e0b000");
+    } else {
+      setCard(1,"Total registered",total,rangeTxt,"#eafffb");
+      setCard(2,"My side",mine,pct(mine,total)+" of total","#33c0c4");
+      setCard(3,"China side",china,pct(china,total)+" of total","#e0b000");
+      setCard(4,"This month",monthCount,cm,"#eafffb");
+    }
+
     var map={};
     f.forEach(function(x){ var k=keyOf(x); if(!map[k]) map[k]={owner:0,dist:0}; map[k][x.side]++; });
     var keys=Object.keys(map).sort();
 
-    // cue type counts
-    var tc={Break:0,Play:0,Jump:0,Other:0};
-    f.forEach(function(x){ tc[x.type]=(tc[x.type]||0)+1; });
-
-    var basisWord = basis==="orders" ? "orders" : "registered";
-    el("chartTitle").textContent = (basis==="orders"?"Orders by ":"Registered by ")+(groupBy==="year"?"year":"month");
-    el("chartSub").textContent = "Side: "+(side==="total"?"Mine + China":(side==="owner"?"Mine":"China"))+" · Type: "+(type==="all"?"All":type);
-    el("thPeriod").textContent = groupBy==="year"?"Year":"Month";
+    el("chartTitle").textContent=(basis==="orders"?"Orders by ":"Registered by ")+(groupBy==="year"?"year":"month");
+    el("chartSub").textContent=(basis==="orders")
+      ? ("Cue type: "+(type==="all"?"All":type))
+      : ("Side: "+(side==="total"?"Mine + China":(side==="owner"?"Mine":"China"))+" · Type: "+(type==="all"?"All":type));
 
     drawChart(keys,map);
     drawDonut(tc);
     drawTable(keys,map);
-    fillReport(keys, map, tc, mine, china, basisWord);
+    fillReport(keys,map,tc,mine,china,f);
+  }
+  function setCard(n,label,val,sub,color){
+    el("c"+n+"k").innerHTML=label; el("c"+n+"v").textContent=val;
+    el("c"+n+"v").style.color=color||""; el("c"+n+"s").textContent=sub||"";
   }
 
   function drawChart(keys,map){
     var mineData=keys.map(function(k){return map[k].owner;});
     var chinaData=keys.map(function(k){return map[k].dist;});
-    var ds;
-    if (side==="total") ds=[
-      { label:"My side", data:mineData, backgroundColor:TEAL, stack:"s", borderRadius:4, maxBarThickness:34 },
-      { label:"China", data:chinaData, backgroundColor:GOLD, stack:"s", borderRadius:4, maxBarThickness:34 }
-    ];
-    else if (side==="owner") ds=[{ label:"My side", data:mineData, backgroundColor:TEAL, borderRadius:4, maxBarThickness:34 }];
-    else ds=[{ label:"China", data:chinaData, backgroundColor:GOLD, borderRadius:4, maxBarThickness:34 }];
+    var totalData=keys.map(function(k){return map[k].owner+map[k].dist;});
+    var ds, showLegend=false;
+    if (basis==="orders"){
+      ds=[{ label:"Orders", data:totalData, backgroundColor:TEAL, borderRadius:4, maxBarThickness:34 }];
+    } else if (side==="total"){
+      ds=[
+        { label:"My side", data:mineData, backgroundColor:TEAL, stack:"s", borderRadius:4, maxBarThickness:34 },
+        { label:"China", data:chinaData, backgroundColor:GOLD, stack:"s", borderRadius:4, maxBarThickness:34 }
+      ]; showLegend=true;
+    } else if (side==="owner"){
+      ds=[{ label:"My side", data:mineData, backgroundColor:TEAL, borderRadius:4, maxBarThickness:34 }];
+    } else {
+      ds=[{ label:"China", data:chinaData, backgroundColor:GOLD, borderRadius:4, maxBarThickness:34 }];
+    }
     var opts={ responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{ display:side==="total", position:"bottom", labels:{ usePointStyle:true, boxWidth:8 } } },
+      plugins:{ legend:{ display:showLegend, position:"bottom", labels:{ usePointStyle:true, boxWidth:8 } } },
       scales:{ x:{ stacked:true, grid:{ display:false }, ticks:{ color:"#8a978f" } },
                y:{ stacked:true, beginAtZero:true, ticks:{ precision:0, color:"#8a978f" }, grid:{ color:"#1a2420" } } } };
     if (chart){ chart.data={labels:keys,datasets:ds}; chart.options=opts; chart.update(); }
@@ -391,37 +408,72 @@
   }
 
   function drawTable(keys,map){
-    var tb=el("tbody"); tb.innerHTML="";
-    if (keys.length===0){ tb.innerHTML='<tr><td colspan="4" style="color:#7c8b83">No data in this range.</td></tr>'; return; }
-    var tM=0,tC=0;
-    keys.forEach(function(k){ var m=map[k].owner,c=map[k].dist; tM+=m; tC+=c;
-      var tr=document.createElement("tr");
-      tr.innerHTML="<td>"+k+"</td><td class='num'>"+m+"</td><td class='num'>"+c+"</td><td class='num'>"+(m+c)+"</td>";
-      tb.appendChild(tr);
-    });
-    var tf=document.createElement("tr");
-    tf.innerHTML="<td style='font-weight:800'>Total</td><td class='num' style='font-weight:800'>"+tM+"</td><td class='num' style='font-weight:800'>"+tC+"</td><td class='num' style='font-weight:800;color:#eafffb'>"+(tM+tC)+"</td>";
-    tb.appendChild(tf);
+    var head=el("tblHead"), tb=el("tbody"); tb.innerHTML="";
+    var pLabel=groupBy==="year"?"Year":"Month";
+    if (basis==="orders"){
+      head.innerHTML="<tr><th>"+pLabel+"</th><th class='num'>Orders</th></tr>";
+      if (!keys.length){ tb.innerHTML='<tr><td colspan="2" style="color:#7c8b83">No data in this range.</td></tr>'; return; }
+      var t=0;
+      keys.forEach(function(k){ var v=map[k].owner+map[k].dist; t+=v;
+        var tr=document.createElement("tr"); tr.innerHTML="<td>"+k+"</td><td class='num'>"+v+"</td>"; tb.appendChild(tr); });
+      var tf=document.createElement("tr");
+      tf.innerHTML="<td style='font-weight:800'>Total</td><td class='num' style='font-weight:800;color:#eafffb'>"+t+"</td>";
+      tb.appendChild(tf);
+    } else {
+      head.innerHTML="<tr><th>"+pLabel+"</th><th class='num'>My side</th><th class='num'>China</th><th class='num'>Total</th></tr>";
+      if (!keys.length){ tb.innerHTML='<tr><td colspan="4" style="color:#7c8b83">No data in this range.</td></tr>'; return; }
+      var tM=0,tC=0;
+      keys.forEach(function(k){ var m=map[k].owner,c=map[k].dist; tM+=m; tC+=c;
+        var tr=document.createElement("tr");
+        tr.innerHTML="<td>"+k+"</td><td class='num'>"+m+"</td><td class='num'>"+c+"</td><td class='num'>"+(m+c)+"</td>";
+        tb.appendChild(tr); });
+      var tf2=document.createElement("tr");
+      tf2.innerHTML="<td style='font-weight:800'>Total</td><td class='num' style='font-weight:800'>"+tM+"</td><td class='num' style='font-weight:800'>"+tC+"</td><td class='num' style='font-weight:800;color:#eafffb'>"+(tM+tC)+"</td>";
+      tb.appendChild(tf2);
+    }
   }
 
-  function fillReport(keys, map, tc, mine, china, basisWord){
+  function fillReport(keys, map, tc, mine, china, f){
     var from=el("from").value, to=el("to").value;
-    var rows="";
-    keys.forEach(function(k){ var m=map[k].owner,c=map[k].dist; rows+="<tr><td>"+k+"</td><td class='num'>"+m+"</td><td class='num'>"+c+"</td><td class='num'>"+(m+c)+"</td></tr>"; });
-    if (!keys.length) rows="<tr><td colspan='4'>No data</td></tr>";
+    var pLabel=groupBy==="year"?"Year":"Month";
+
+    // period table (Orders = total only; Register = my/china/total)
+    var periodTable;
+    if (basis==="orders"){
+      var r1=""; keys.forEach(function(k){ r1+="<tr><td>"+k+"</td><td class='num'>"+(map[k].owner+map[k].dist)+"</td></tr>"; });
+      if (!keys.length) r1="<tr><td colspan='2'>No data</td></tr>";
+      periodTable="<table><tr><th>"+pLabel+"</th><th class='num'>Orders</th></tr>"+r1+"</table>";
+    } else {
+      var r2=""; keys.forEach(function(k){ var m=map[k].owner,c=map[k].dist; r2+="<tr><td>"+k+"</td><td class='num'>"+m+"</td><td class='num'>"+c+"</td><td class='num'>"+(m+c)+"</td></tr>"; });
+      if (!keys.length) r2="<tr><td colspan='4'>No data</td></tr>";
+      periodTable="<table><tr><th>"+pLabel+"</th><th class='num'>My side</th><th class='num'>China</th><th class='num'>Total</th></tr>"+r2+"</table>";
+    }
+
+    // KPI summary line
+    var kpi = (basis==="orders")
+      ? "<div class='rkpi'>Total orders<b>"+(mine+china)+"</b></div>"
+      : "<div class='rkpi'>Total registered<b>"+(mine+china)+"</b></div><div class='rkpi'>My side<b>"+mine+"</b></div><div class='rkpi'>China side<b>"+china+"</b></div>";
+
+    // optional serial-number list
+    var serials="";
+    if (el("incSerials").checked){
+      var sr=""; f.forEach(function(x){
+        sr+="<tr><td>"+(x.code||"")+"</td><td>"+x.type+"</td><td>"+(x.omonth||"-")+"</td><td>"+(x.side==="dist"?"China":"Mine")+"</td><td>"+(x.d||"-")+"</td></tr>";
+      });
+      if (!f.length) sr="<tr><td colspan='5'>No records</td></tr>";
+      serials="<h2>Serial numbers ("+f.length+")</h2>"+
+        "<table><tr><th>Shaft number</th><th>Cue type</th><th>Order month</th><th>Side</th><th>Reg date</th></tr>"+sr+"</table>";
+    }
+
     el("report").innerHTML =
-      "<h1>GEEZ — "+(basisWord==="orders"?"Orders":"Registration")+" Report</h1>"+
-      "<div class='rsub'>Generated "+new Date().toLocaleString()+" · Range "+from+" → "+to+" · Type: "+(type==="all"?"All":type)+"</div>"+
-      "<div class='rrow'>"+
-        "<div class='rkpi'>Total "+basisWord+"<b>"+(mine+china)+"</b></div>"+
-        "<div class='rkpi'>My side<b>"+mine+"</b></div>"+
-        "<div class='rkpi'>China side<b>"+china+"</b></div>"+
-      "</div>"+
+      "<h1>GEEZ — "+(basis==="orders"?"Orders":"Registration")+" Report</h1>"+
+      "<div class='rsub'>Generated "+new Date().toLocaleString()+" · Range "+from+" → "+to+" · Cue type: "+(type==="all"?"All":type)+"</div>"+
+      "<div class='rrow'>"+kpi+"</div>"+
       "<h2>By cue type</h2>"+
       "<table><tr><th>Break</th><th>Play</th><th>Jump</th><th>Other</th></tr>"+
       "<tr><td class='num'>"+tc.Break+"</td><td class='num'>"+tc.Play+"</td><td class='num'>"+tc.Jump+"</td><td class='num'>"+tc.Other+"</td></tr></table>"+
-      "<h2>By "+(groupBy==="year"?"year":"month")+"</h2>"+
-      "<table><tr><th>"+(groupBy==="year"?"Year":"Month")+"</th><th class='num'>My side</th><th class='num'>China</th><th class='num'>Total</th></tr>"+rows+"</table>";
+      "<h2>By "+(groupBy==="year"?"year":"month")+"</h2>"+periodTable+
+      serials;
   }
 
   function downloadPDF(){ window.print(); }
