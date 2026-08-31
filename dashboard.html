@@ -128,15 +128,17 @@
   <div id="dash" class="shell hidden">
     <aside class="side">
       <div class="brandRow"><div class="logoMark" id="logoSide"></div><div><div class="brandName">GEEZ</div><div class="brandSub">Dashboard</div></div></div>
-      <div class="navlabel">Dashboards</div>
-      <div class="navitem on"><span class="ic">▤</span> Overview</div>
-      <div class="navitem" onclick="loadStats()"><span class="ic">↻</span> Refresh data</div>
+      <div class="navlabel">Views</div>
+      <div class="navitem on" id="navOrders" onclick="setPage('orders')"><span class="ic">▤</span> Orders</div>
+      <div class="navitem" id="navReg" onclick="setPage('register')"><span class="ic">✓</span> Registered / Shipped</div>
+      <div class="navlabel">Data</div>
+      <div class="navitem" onclick="loadStats()"><span class="ic">↻</span> Refresh</div>
       <div class="foot"><button class="logoutBtn" onclick="logout()"><span class="ic">⏻</span> Log out</button></div>
     </aside>
 
     <main class="main">
       <div class="topbar">
-        <div><div class="crumb">Dashboards / <b>Overview</b></div><div class="h2">Orders &amp; Registrations</div></div>
+        <div><div class="crumb">Dashboards / <b id="crumbView">Orders</b></div><div class="h2" id="pageTitle">Orders</div></div>
         <div class="topbtns">
           <button class="btnpdf" onclick="downloadPDF()">⬇ Download PDF</button>
           <button class="iconbtn" onclick="loadStats()" title="Refresh">↻</button>
@@ -151,12 +153,6 @@
       </div>
 
       <div class="filters">
-        <div class="fgroup"><label>Count by</label>
-          <div class="seg" id="segBasis">
-            <button data-v="orders" class="on" onclick="setBasis('orders')">Orders (by code)</button>
-            <button data-v="register" onclick="setBasis('register')">Registered / shipped</button>
-          </div>
-        </div>
         <div class="fgroup"><label>Cue type</label>
           <div class="seg" id="segType">
             <button data-v="all" class="on" onclick="setType('all')">All</button>
@@ -290,7 +286,15 @@
     if (!el("to").value) el("to").value = todayStr();
   }
 
-  function setBasis(v){ basis=v; segOn("segBasis",v); render(); }
+  function setPage(v){
+    basis=v;
+    el("navOrders").className = "navitem" + (v==="orders"?" on":"");
+    el("navReg").className = "navitem" + (v==="register"?" on":"");
+    var title = (v==="orders") ? "Orders" : "Registered / Shipped";
+    el("pageTitle").textContent = title;
+    el("crumbView").textContent = title;
+    render();
+  }
   function setType(v){ type=v; segOn("segType",v); render(); }
   function setSide(v){ side=v; segOn("segSide",v); render(); }
   function setGroup(v){ groupBy=v; segOn("segGroup",v); render(); }
