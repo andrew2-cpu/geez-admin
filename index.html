@@ -36,6 +36,14 @@
   .hidden { display: none; }
   .topbar { display: flex; justify-content: space-between; align-items: center; }
   .logout { font-size: 12px; color: #269a9e; background: none; border: none; cursor: pointer; text-decoration: underline; }
+  /* language switch */
+  .langbar { display: flex; justify-content: flex-end; gap: 6px; margin-bottom: 6px; }
+  .langbtn { border: 1px solid #269a9e; background: #fff; color: #269a9e; border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 600; cursor: pointer; }
+  .langbtn.on { background: #269a9e; color: #fff; }
+  /* role badge */
+  .rolebadge { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; margin-left: 8px; vertical-align: middle; }
+  .rolebadge.owner { background: #e5f5f5; color: #1c7c80; }
+  .rolebadge.dist { background: #fff2cc; color: #9a7a00; }
   .sugbox { position: relative; }
   .suglist {
     position: absolute; left: 0; right: 0; top: 100%; z-index: 5;
@@ -62,13 +70,19 @@
 </head>
 <body>
 
+  <!-- language switch (always visible) -->
+  <div class="langbar">
+    <button id="lEn" class="langbtn on" onclick="setLang('en')">EN</button>
+    <button id="lZh" class="langbtn" onclick="setLang('zh')">中文</button>
+  </div>
+
   <!-- LOGIN -->
   <div id="loginScreen">
-    <h1>GEEZ Admin - Login</h1>
-    <div class="sub">Enter your password once to start.</div>
-    <label>Password</label>
+    <h1 id="tLoginTitle">GEEZ Admin - Login</h1>
+    <div class="sub" id="tLoginSub">Enter your password once to start.</div>
+    <label id="tPassLabel">Password</label>
     <input type="password" id="loginPass" placeholder="Admin password" autocomplete="off">
-    <div class="remember"><label style="display:inline;font-weight:400;"><input type="checkbox" id="stayIn" checked style="width:auto"> Keep me logged in on this phone</label></div>
+    <div class="remember"><label style="display:inline;font-weight:400;"><input type="checkbox" id="stayIn" checked style="width:auto"> <span id="tStay">Keep me logged in on this phone</span></label></div>
     <button class="save" id="loginBtn" onclick="doLogin()">Log In</button>
     <div class="msg" id="loginMsg"></div>
   </div>
@@ -76,29 +90,29 @@
   <!-- ADD -->
   <div id="addScreen" class="hidden">
     <div class="topbar">
-      <h1>GEEZ - Add Product</h1>
-      <button class="logout" onclick="logout()">Log out</button>
+      <h1><span id="tAddTitle">GEEZ - Add Product</span><span id="roleBadge" class="rolebadge owner hidden"></span></h1>
+      <button class="logout" id="tLogout" onclick="logout()">Log out</button>
     </div>
     <div class="sub" id="counter">Ready to add.</div>
 
-    <label>1. Shaft number (type last digits to find)</label>
+    <label id="tL1">1. Shaft number (type last digits to find)</label>
     <div class="sugbox">
       <input type="text" id="shaft" placeholder="e.g. 55" autocomplete="off" autocapitalize="characters" oninput="onShaftType()">
       <div id="suglist" class="suglist hidden"></div>
     </div>
-    <button class="mini photo-btn" onclick="takePhoto('shaft')">Add photo</button><span class="photo-ok hidden" id="okShaft">photo added</span>
+    <button class="mini photo-btn" id="tPhotoShaft" onclick="takePhoto('shaft')">Add photo</button><span class="photo-ok hidden" id="okShaft">photo added</span>
 
-    <label>2. NFC number (paste the scanned URL)</label>
+    <label id="tL2">2. NFC number (paste the scanned URL)</label>
     <input type="text" id="nfc" placeholder="Paste URL or number" autocomplete="off" oninput="onNfcInput()">
-    <div class="hint">Scan NFC, copy the URL it opens, paste here - the number after c= is taken automatically.</div>
-    <button class="mini photo-btn" onclick="takePhoto('nfc')">Add screenshot</button><span class="photo-ok hidden" id="okNfc">photo added</span>
+    <div class="hint" id="tL2hint">Scan NFC, copy the URL it opens, paste here - the number after c= is taken automatically.</div>
+    <button class="mini photo-btn" id="tPhotoNfc" onclick="takePhoto('nfc')">Add screenshot</button><span class="photo-ok hidden" id="okNfc">photo added</span>
 
-    <label>3. Box number</label>
+    <label id="tL3">3. Box number</label>
     <div class="row">
       <input type="text" id="box" placeholder="Type box number" autocomplete="off" autocapitalize="characters">
-      <button class="mini" onclick="startScan('box')">Scan QR</button>
+      <button class="mini" id="tScan" onclick="startScan('box')">Scan QR</button>
     </div>
-    <button class="mini photo-btn" onclick="takePhoto('box')">Add photo</button><span class="photo-ok hidden" id="okBox">photo added</span>
+    <button class="mini photo-btn" id="tPhotoBox" onclick="takePhoto('box')">Add photo</button><span class="photo-ok hidden" id="okBox">photo added</span>
     <div id="reader"></div>
 
     <input type="file" id="photoInput" accept="image/*" style="display:none">
@@ -125,42 +139,202 @@
 <script>
   var API_URL = "https://script.google.com/macros/s/AKfycbzU3NvnbbZnX5dHXU6daXpleLHnqxmiZlyOOLOiENahjrcg3cgIlMWIkLucRnbBV_SL/exec";
 
-  var PASS = "", addedCount = 0, shaftList = [];
+  var PASS = "", addedCount = 0, shaftList = [], role = "owner";
   var photos = { shaft: "", nfc: "", box: "" };
+  var lang = "en";
+
+  /* ---------- translations ---------- */
+  var STR = {
+    en: {
+      loginTitle: "GEEZ Admin - Login",
+      loginSub: "Enter your password once to start.",
+      passLabel: "Password",
+      phPass: "Admin password",
+      stay: "Keep me logged in on this phone",
+      login: "Log In",
+      addTitle: "GEEZ - Add Product",
+      logout: "Log out",
+      ready: "Ready to add.",
+      added: "Added this session: ",
+      l1: "1. Shaft number (type last digits to find)",
+      phShaft: "e.g. 55",
+      photoShaft: "Add photo",
+      photoAdded: "photo added",
+      l2: "2. NFC number (paste the scanned URL)",
+      phNfc: "Paste URL or number",
+      l2hint: "Scan NFC, copy the URL it opens, paste here - the number after c= is taken automatically.",
+      photoNfc: "Add screenshot",
+      l3: "3. Box number",
+      phBox: "Type box number",
+      scan: "Scan QR",
+      photoBox: "Add photo",
+      save: "Save Product",
+      enterPass: "Enter your password.",
+      checking: "Checking...",
+      locked: "Locked - too many wrong tries. Try later.",
+      wrongPass: "Wrong password.",
+      netErr: "Network error. Try again.",
+      fill3: "Fill all 3 numbers.",
+      saving: "Saving...",
+      saved: "Saved!",
+      expired: "Session expired - log in again.",
+      dupBox: "This BOX number is already registered.",
+      dupShaft: "This SHAFT number is already registered.",
+      dupNfc: "This NFC number is already registered.",
+      cantSave: "Could not save. Try again.",
+      scanNL: "Scanner not loaded - reload.",
+      scanPoint: "Point at the QR code...",
+      scanned: "Scanned.",
+      noCam: "Cannot open camera - type instead.",
+      roleOwner: "Owner",
+      roleDist: "Distributor"
+    },
+    zh: {
+      loginTitle: "GEEZ 管理员 - 登录",
+      loginSub: "输入一次密码即可开始。",
+      passLabel: "密码",
+      phPass: "管理员密码",
+      stay: "在此手机上保持登录",
+      login: "登录",
+      addTitle: "GEEZ - 添加产品",
+      logout: "退出登录",
+      ready: "准备添加。",
+      added: "本次已添加：",
+      l1: "1. 杆身编号（输入末尾数字查找）",
+      phShaft: "例如 55",
+      photoShaft: "添加照片",
+      photoAdded: "已添加照片",
+      l2: "2. NFC 编号（粘贴扫描得到的网址）",
+      phNfc: "粘贴网址或编号",
+      l2hint: "扫描 NFC，复制打开的网址粘贴到此处 — 系统会自动提取 c= 后面的编号。",
+      photoNfc: "添加截图",
+      l3: "3. 包装盒编号",
+      phBox: "输入包装盒编号",
+      scan: "扫描二维码",
+      photoBox: "添加照片",
+      save: "保存产品",
+      enterPass: "请输入密码。",
+      checking: "正在验证…",
+      locked: "已锁定 — 错误次数过多，请稍后再试。",
+      wrongPass: "密码错误。",
+      netErr: "网络错误，请重试。",
+      fill3: "请填写全部 3 个编号。",
+      saving: "正在保存…",
+      saved: "已保存！",
+      expired: "会话已过期 — 请重新登录。",
+      dupBox: "该包装盒编号已登记。",
+      dupShaft: "该杆身编号已登记。",
+      dupNfc: "该 NFC 编号已登记。",
+      cantSave: "保存失败，请重试。",
+      scanNL: "扫描器未加载 — 请刷新。",
+      scanPoint: "对准二维码…",
+      scanned: "已扫描。",
+      noCam: "无法打开相机 — 请手动输入。",
+      roleOwner: "所有者",
+      roleDist: "经销商"
+    }
+  };
+  function t(k) { return (STR[lang] && STR[lang][k]) || STR.en[k] || k; }
+
+  function setText(id, val) { var e = document.getElementById(id); if (e) e.textContent = val; }
+  function setPh(id, val) { var e = document.getElementById(id); if (e) e.placeholder = val; }
+
+  function applyLang() {
+    document.documentElement.lang = (lang === "zh") ? "zh" : "en";
+    document.getElementById("lEn").className = "langbtn" + (lang === "en" ? " on" : "");
+    document.getElementById("lZh").className = "langbtn" + (lang === "zh" ? " on" : "");
+    setText("tLoginTitle", t("loginTitle"));
+    setText("tLoginSub", t("loginSub"));
+    setText("tPassLabel", t("passLabel"));
+    setPh("loginPass", t("phPass"));
+    setText("tStay", t("stay"));
+    setText("loginBtn", t("login"));
+    setText("tAddTitle", t("addTitle"));
+    setText("tLogout", t("logout"));
+    setText("tL1", t("l1"));
+    setPh("shaft", t("phShaft"));
+    setText("tPhotoShaft", t("photoShaft"));
+    setText("okShaft", t("photoAdded"));
+    setText("tL2", t("l2"));
+    setPh("nfc", t("phNfc"));
+    setText("tL2hint", t("l2hint"));
+    setText("tPhotoNfc", t("photoNfc"));
+    setText("okNfc", t("photoAdded"));
+    setText("tL3", t("l3"));
+    setPh("box", t("phBox"));
+    setText("tScan", t("scan"));
+    setText("tPhotoBox", t("photoBox"));
+    setText("okBox", t("photoAdded"));
+    setText("saveBtn", t("save"));
+    updateCounter();
+    updateRoleBadge();
+  }
+
+  function setLang(l) {
+    lang = (l === "zh") ? "zh" : "en";
+    try { localStorage.setItem("geezAdminLang", lang); } catch (e) {}
+    applyLang();
+  }
+
+  function updateCounter() {
+    var c = document.getElementById("counter");
+    if (!c) return;
+    c.textContent = addedCount > 0 ? (t("added") + addedCount) : t("ready");
+  }
+
+  function updateRoleBadge() {
+    var b = document.getElementById("roleBadge");
+    if (!b) return;
+    if (role === "dist") { b.className = "rolebadge dist"; b.textContent = t("roleDist"); b.classList.remove("hidden"); }
+    else { b.className = "rolebadge owner"; b.textContent = t("roleOwner"); b.classList.remove("hidden"); }
+  }
 
   function clean(v) { return v.trim().toUpperCase().replace(/\s+/g, ""); }
-  function setMsg(t, k) { var m = document.getElementById("msg"); m.textContent = t; m.className = "msg " + (k || ""); }
-  function setLoginMsg(t, k) { var m = document.getElementById("loginMsg"); m.textContent = t; m.className = "msg " + (k || ""); }
+  function setMsg(k) { var m = document.getElementById("msg"); m.textContent = k.text; m.className = "msg " + (k.cls || ""); }
+  function setLoginMsg(text, cls) { var m = document.getElementById("loginMsg"); m.textContent = text; m.className = "msg " + (cls || ""); }
 
   function showAdd() {
     document.getElementById("loginScreen").classList.add("hidden");
     document.getElementById("addScreen").classList.remove("hidden");
+    updateRoleBadge();
     loadShafts();
     document.getElementById("shaft").focus();
   }
 
+  // restore saved language + session
+  try {
+    var sl = localStorage.getItem("geezAdminLang"); if (sl) lang = sl;
+    var sr = localStorage.getItem("geezAdminRole"); if (sr) role = sr;
+  } catch (e) {}
+  applyLang();
   try { var s = localStorage.getItem("geezAdminPass"); if (s) { PASS = s; showAdd(); } } catch (e) {}
 
   function doLogin() {
     var pass = document.getElementById("loginPass").value;
-    if (!pass) { setLoginMsg("Enter your password.", "bad"); return; }
-    var btn = document.getElementById("loginBtn"); btn.disabled = true; setLoginMsg("Checking...", "");
+    if (!pass) { setLoginMsg(t("enterPass"), "bad"); return; }
+    var btn = document.getElementById("loginBtn"); btn.disabled = true; setLoginMsg(t("checking"), "");
     fetch(API_URL + "?action=login&key=" + encodeURIComponent(pass))
       .then(function (r) { return r.json(); })
       .then(function (d) {
         btn.disabled = false;
         if (d.ok) {
           PASS = pass;
-          try { if (document.getElementById("stayIn").checked) localStorage.setItem("geezAdminPass", pass); } catch (e) {}
+          role = d.role || "owner";
+          try {
+            localStorage.setItem("geezAdminRole", role);
+            if (document.getElementById("stayIn").checked) localStorage.setItem("geezAdminPass", pass);
+          } catch (e) {}
+          // distributor defaults to Chinese
+          if (role === "dist" && !localStorage.getItem("geezAdminLang")) { lang = "zh"; applyLang(); }
           showAdd();
-        } else if (d.error === "locked") { setLoginMsg("Locked - too many wrong tries. Try later.", "bad"); }
-        else { setLoginMsg("Wrong password.", "bad"); }
+        } else if (d.error === "locked") { setLoginMsg(t("locked"), "bad"); }
+        else { setLoginMsg(t("wrongPass"), "bad"); }
       })
-      .catch(function () { btn.disabled = false; setLoginMsg("Network error. Try again.", "bad"); });
+      .catch(function () { btn.disabled = false; setLoginMsg(t("netErr"), "bad"); });
   }
 
   function logout() {
-    PASS = ""; try { localStorage.removeItem("geezAdminPass"); } catch (e) {}
+    PASS = ""; try { localStorage.removeItem("geezAdminPass"); localStorage.removeItem("geezAdminRole"); } catch (e) {}
     document.getElementById("loginPass").value = "";
     document.getElementById("addScreen").classList.add("hidden");
     document.getElementById("loginScreen").classList.remove("hidden");
@@ -211,13 +385,13 @@
   function startScan(id) {
     var el = document.getElementById("reader");
     if (scanning) { stopScan(); return; }
-    if (typeof Html5Qrcode === "undefined") { setMsg("Scanner not loaded - reload.", "bad"); return; }
+    if (typeof Html5Qrcode === "undefined") { setMsg({ text: t("scanNL"), cls: "bad" }); return; }
     el.style.display = "block";
-    qr = new Html5Qrcode("reader"); scanning = true; setMsg("Point at the QR code...", "");
+    qr = new Html5Qrcode("reader"); scanning = true; setMsg({ text: t("scanPoint"), cls: "" });
     qr.start({ facingMode: "environment" }, { fps: 10, qrbox: 220 },
-      function (t) { document.getElementById(id).value = t; setMsg("Scanned.", "ok"); stopScan(); },
+      function (tx) { document.getElementById(id).value = tx; setMsg({ text: t("scanned"), cls: "ok" }); stopScan(); },
       function () {}
-    ).catch(function () { setMsg("Cannot open camera - type instead.", "bad"); el.style.display = "none"; scanning = false; });
+    ).catch(function () { setMsg({ text: t("noCam"), cls: "bad" }); el.style.display = "none"; scanning = false; });
   }
   function stopScan() { if (qr && scanning) { qr.stop().then(function () { qr.clear(); }).catch(function () {}); } document.getElementById("reader").style.display = "none"; scanning = false; }
 
@@ -246,7 +420,6 @@
     var p = document.getElementById("pool"), stick = document.getElementById("stick"),
         ball = document.getElementById("ball");
     for (var i = 1; i <= 6; i++) document.getElementById("f" + i).classList.remove("blow");
-    // reset positions (inline styles drive the whole animation)
     stick.style.transition = "none";
     stick.style.transform = "translateY(-50%) translateX(0)";
     ball.style.transition = "none";
@@ -254,8 +427,8 @@
     ball.style.opacity = "1";
     ball.style.transform = "translateY(-50%) rotate(0deg)";
     p.classList.add("on");
-    void stick.offsetWidth;                          // force reflow so reset applies
-    // keep drawing the cue back the whole time it's saving (caps at 10s)
+    void stick.offsetWidth;
+    // keep drawing the cue back the whole time it's saving (caps at 10s; good for slow VPN)
     setTimeout(function () {
       stick.style.transition = "transform 10s linear";
       stick.style.transform = "translateY(-50%) translateX(-60px)";
@@ -263,16 +436,13 @@
   }
   function poolShootThen(done) {
     var stick = document.getElementById("stick"), ball = document.getElementById("ball");
-    // save succeeded -> shoot fast from wherever the cue is
     stick.style.transition = "transform .12s ease-in";
     stick.style.transform = "translateY(-50%) translateX(30px)";
-    // ball rolls fast to the wall, spinning
     setTimeout(function () {
       ball.style.transition = "left .5s linear, transform .5s linear";
       ball.style.left = "calc(100% - 26px)";
       ball.style.transform = "translateY(-50%) rotate(1260deg)";
     }, 120);
-    // explode at the wall
     setTimeout(function () {
       ball.style.transition = "opacity .1s, transform .1s";
       ball.style.opacity = "0";
@@ -287,17 +457,15 @@
     }, 560);
     setTimeout(function () { document.getElementById("pool").classList.remove("on"); if (done) done(); }, 1200);
   }
-  function poolCancel() {
-    document.getElementById("pool").classList.remove("on");
-  }
+  function poolCancel() { document.getElementById("pool").classList.remove("on"); }
 
   // ---- save ----
   function save() {
     var shaft = clean(document.getElementById("shaft").value);
     var nfc = clean(document.getElementById("nfc").value);
     var box = clean(document.getElementById("box").value);
-    if (!shaft || !nfc || !box) { setMsg("Fill all 3 numbers.", "bad"); return; }
-    var btn = document.getElementById("saveBtn"); btn.disabled = true; setMsg("Saving...", "");
+    if (!shaft || !nfc || !box) { setMsg({ text: t("fill3"), cls: "bad" }); return; }
+    var btn = document.getElementById("saveBtn"); btn.disabled = true; setMsg({ text: t("saving"), cls: "" });
     document.getElementById("dbg").textContent = "";
     poolStart();
     var payload = { action: "add", key: PASS, shaft: shaft, nfc: nfc, box: box,
@@ -307,10 +475,9 @@
       .then(function (d) {
         btn.disabled = false;
         if (d.ok) {
-          // say "Saved!" first, THEN shoot the ball
           addedCount++;
-          document.getElementById("counter").textContent = "Added this session: " + addedCount;
-          setMsg("Saved!", "ok");
+          updateCounter();
+          setMsg({ text: t("saved"), cls: "ok" });
           if (d.dbg) document.getElementById("dbg").textContent = "photo note: " + d.dbg;
           poolShootThen(function () {
             photos = { shaft: "", nfc: "", box: "" };
@@ -321,14 +488,14 @@
             document.getElementById("shaft").focus();
           });
         } else if (d.error === "wrong_password" || d.error === "locked") {
-          poolCancel(); setMsg("Session expired - log in again.", "bad"); setTimeout(logout, 1200);
-        } else if (d.error === "duplicate_box") { poolCancel(); setMsg("This BOX number is already registered.", "bad"); }
-        else if (d.error === "duplicate_shaft") { poolCancel(); setMsg("This SHAFT number is already registered.", "bad"); }
-        else if (d.error === "duplicate_nfc") { poolCancel(); setMsg("This NFC number is already registered.", "bad"); }
-        else if (d.error === "missing_fields") { poolCancel(); setMsg("Fill all 3 numbers.", "bad"); }
-        else { poolCancel(); setMsg("Could not save. Try again.", "bad"); }
+          poolCancel(); setMsg({ text: t("expired"), cls: "bad" }); setTimeout(logout, 1200);
+        } else if (d.error === "duplicate_box") { poolCancel(); setMsg({ text: t("dupBox"), cls: "bad" }); }
+        else if (d.error === "duplicate_shaft") { poolCancel(); setMsg({ text: t("dupShaft"), cls: "bad" }); }
+        else if (d.error === "duplicate_nfc") { poolCancel(); setMsg({ text: t("dupNfc"), cls: "bad" }); }
+        else if (d.error === "missing_fields") { poolCancel(); setMsg({ text: t("fill3"), cls: "bad" }); }
+        else { poolCancel(); setMsg({ text: t("cantSave"), cls: "bad" }); }
       })
-      .catch(function () { btn.disabled = false; poolCancel(); setMsg("Network error. Try again.", "bad"); });
+      .catch(function () { btn.disabled = false; poolCancel(); setMsg({ text: t("netErr"), cls: "bad" }); });
   }
 </script>
 </body>
