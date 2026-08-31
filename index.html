@@ -70,12 +70,6 @@
 </head>
 <body>
 
-  <!-- language switch (always visible) -->
-  <div class="langbar">
-    <button id="lEn" class="langbtn on" onclick="setLang('en')">EN</button>
-    <button id="lZh" class="langbtn" onclick="setLang('zh')">中文</button>
-  </div>
-
   <!-- LOGIN -->
   <div id="loginScreen">
     <h1 id="tLoginTitle">GEEZ Admin - Login</h1>
@@ -242,8 +236,6 @@
 
   function applyLang() {
     document.documentElement.lang = (lang === "zh") ? "zh" : "en";
-    document.getElementById("lEn").className = "langbtn" + (lang === "en" ? " on" : "");
-    document.getElementById("lZh").className = "langbtn" + (lang === "zh" ? " on" : "");
     setText("tLoginTitle", t("loginTitle"));
     setText("tLoginSub", t("loginSub"));
     setText("tPassLabel", t("passLabel"));
@@ -302,11 +294,8 @@
     document.getElementById("shaft").focus();
   }
 
-  // restore saved language + session
-  try {
-    var sl = localStorage.getItem("geezAdminLang"); if (sl) lang = sl;
-    var sr = localStorage.getItem("geezAdminRole"); if (sr) role = sr;
-  } catch (e) {}
+  // language is fixed for this page (owner = en, china = zh); just restore role for the badge
+  try { var sr = localStorage.getItem("geezAdminRole"); if (sr) role = sr; } catch (e) {}
   applyLang();
   try { var s = localStorage.getItem("geezAdminPass"); if (s) { PASS = s; showAdd(); } } catch (e) {}
 
@@ -325,8 +314,6 @@
             localStorage.setItem("geezAdminRole", role);
             if (document.getElementById("stayIn").checked) localStorage.setItem("geezAdminPass", pass);
           } catch (e) {}
-          // distributor defaults to Chinese
-          if (role === "dist" && !localStorage.getItem("geezAdminLang")) { lang = "zh"; applyLang(); }
           showAdd();
         } else if (d.error === "locked") { setLoginMsg(t("locked"), "bad"); }
         else { setLoginMsg(t("wrongPass"), "bad"); }
