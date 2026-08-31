@@ -138,6 +138,7 @@
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
   var API_URL = "https://script.google.com/macros/s/AKfycbzU3NvnbbZnX5dHXU6daXpleLHnqxmiZlyOOLOiENahjrcg3cgIlMWIkLucRnbBV_SL/exec";
+  var SIDE = "owner";   // THIS PAGE = owner side (only your password works here)
 
   var PASS = "", addedCount = 0, shaftList = [], role = "owner";
   var photos = { shaft: "", nfc: "", box: "" };
@@ -313,7 +314,7 @@
     var pass = document.getElementById("loginPass").value;
     if (!pass) { setLoginMsg(t("enterPass"), "bad"); return; }
     var btn = document.getElementById("loginBtn"); btn.disabled = true; setLoginMsg(t("checking"), "");
-    fetch(API_URL + "?action=login&key=" + encodeURIComponent(pass))
+    fetch(API_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "login", key: pass, side: SIDE }) })
       .then(function (r) { return r.json(); })
       .then(function (d) {
         btn.disabled = false;
@@ -342,7 +343,7 @@
   }
 
   function loadShafts() {
-    fetch(API_URL + "?action=shafts&key=" + encodeURIComponent(PASS))
+    fetch(API_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "shafts", key: PASS, side: SIDE }) })
       .then(function (r) { return r.json(); })
       .then(function (d) { if (d.ok && d.shafts) shaftList = d.shafts; })
       .catch(function () {});
@@ -468,7 +469,7 @@
     var btn = document.getElementById("saveBtn"); btn.disabled = true; setMsg({ text: t("saving"), cls: "" });
     document.getElementById("dbg").textContent = "";
     poolStart();
-    var payload = { action: "add", key: PASS, shaft: shaft, nfc: nfc, box: box,
+    var payload = { action: "add", key: PASS, side: SIDE, shaft: shaft, nfc: nfc, box: box,
       pshaft: photos.shaft || "", pnfc: photos.nfc || "", pbox: photos.box || "" };
     fetch(API_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload) })
       .then(function (r) { return r.json(); })
