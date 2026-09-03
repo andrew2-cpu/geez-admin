@@ -17,8 +17,11 @@
     color:var(--text); margin:0; }
   .hidden{ display:none !important; }
 
-  #login{ max-width:360px; margin:0 auto; padding:12vh 20px 0; }
-  .loginCard{ background:linear-gradient(180deg,#152019,#101813); border:1px solid var(--border); border-radius:18px; padding:26px; box-shadow:0 24px 60px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.04); }
+  #login{ position:fixed; inset:0; overflow-y:auto; display:flex; justify-content:center; align-items:flex-start; padding:12vh 20px 40px;
+    background:
+      radial-gradient(720px 320px at 50% 0%, rgba(51,192,196,.22), transparent 62%),
+      linear-gradient(160deg, #114442 0%, #0c1c19 48%, #0a100e 100%); }
+  .loginCard{ width:100%; max-width:360px; background:linear-gradient(180deg, rgba(24,36,31,.92), rgba(15,24,20,.92)); backdrop-filter:blur(6px); border:1px solid rgba(51,192,196,.22); border-radius:18px; padding:26px; box-shadow:0 24px 60px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.05); }
   .brandRow{ display:flex; align-items:center; gap:11px; margin-bottom:18px; }
   .logoMark{ width:40px; height:40px; background:#0b100e; border:1px solid var(--border); border-radius:11px; display:flex; align-items:center; justify-content:center; box-shadow:inset 0 1px 0 rgba(255,255,255,.05); }
   .brandName{ font-size:17px; font-weight:800; letter-spacing:1px; }
