@@ -176,6 +176,7 @@
       dupBox: "This BOX number is already registered.",
       dupShaft: "This SHAFT number is already registered.",
       dupNfc: "This NFC number is already registered.",
+      savedDup: "Saved! (duplicate NFC — flagged in the sheet)",
       cantSave: "Could not save. Try again.",
       scanNL: "Scanner not loaded - reload.",
       scanPoint: "Point at the QR code...",
@@ -220,6 +221,7 @@
       dupBox: "该包装盒编号已登记。",
       dupShaft: "该杆身编号已登记。",
       dupNfc: "该 NFC 编号已登记。",
+      savedDup: "已保存！（NFC 重复 — 已在表格中标记）",
       cantSave: "保存失败，请重试。",
       scanNL: "扫描器未加载 — 请刷新。",
       scanPoint: "对准二维码…",
@@ -465,7 +467,7 @@
         if (d.ok) {
           addedCount++;
           updateCounter();
-          setMsg({ text: t("saved"), cls: "ok" });
+          setMsg({ text: d.dupNfc ? t("savedDup") : t("saved"), cls: "ok" });
           if (d.dbg) document.getElementById("dbg").textContent = "photo note: " + d.dbg;
           poolShootThen(function () {
             photos = { shaft: "", nfc: "", box: "" };
