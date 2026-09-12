@@ -117,6 +117,18 @@
   .rgrid a{ color:#7fe5e8; }
   .notfound{ color:var(--muted2); font-size:14px; padding:6px 0; }
 
+  /* duplicate warnings */
+  .warnItem{ display:flex; align-items:flex-start; gap:10px; padding:11px 12px; border-radius:10px; margin-bottom:8px; font-size:13px; border:1px solid var(--border); }
+  .warnItem:last-child{ margin-bottom:0; }
+  .warnItem.err{ background:rgba(224,101,95,.10); border-color:rgba(224,101,95,.4); }
+  .warnItem.warn{ background:rgba(224,138,60,.10); border-color:rgba(224,138,60,.4); }
+  .warnItem.ok{ background:rgba(46,172,102,.08); border-color:rgba(46,172,102,.3); color:#8fd8ac; }
+  .wtag{ flex:0 0 auto; font-size:10px; font-weight:800; padding:3px 8px; border-radius:999px; white-space:nowrap; }
+  .wtag.err{ background:rgba(224,101,95,.2); color:#e88a86; }
+  .wtag.warn{ background:rgba(224,138,60,.2); color:#e0a161; }
+  .warnItem .wbody b{ color:var(--text); }
+  .warnItem .wshafts{ color:var(--muted2); }
+
   #report{ display:none; }
   @media print{
     body *{ visibility:hidden; }
@@ -208,6 +220,12 @@
         <div class="panel" style="margin-bottom:16px;">
           <h3>Registration progress</h3>
           <div class="progWrap"><div class="progBar"><div class="progFill" id="progFill"></div></div><div class="progText" id="progText"></div></div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px;">
+          <h3>⚠ Duplicate checks</h3>
+          <div class="psub">Any two products sharing the same shaft, box, or NFC number</div>
+          <div id="warnBox"></div>
         </div>
 
         <div class="grid2">
@@ -338,7 +356,7 @@
       .then(function(r){ return r.json(); })
       .then(function(d){
         if (!d.ok){ if(d.error==="wrong_password"){ logout(); } return; }
-        ROWS=(d.rows||[]).map(function(x){ var p=parseCode(x.code); return { d:x.d||"", side:x.side, type:p.type, omonth:p.omonth, code:x.code||"" }; });
+        ROWS=(d.rows||[]).map(function(x){ var p=parseCode(x.code); return { d:x.d||"", side:x.side, type:p.type, omonth:p.omonth, code:x.code||"", nfc:x.nfc||"", box:x.box||"" }; });
         ORDERS=(d.orders||[]).map(function(c){ var p=parseCode(c); return { type:p.type, omonth:p.omonth, code:c }; });
         regSet={}; ROWS.forEach(function(x){ regSet[cc(x.code)]=1; });
         initDates(); setPage(page);
@@ -422,6 +440,36 @@
     var dopts={ responsive:true, maintainAspectRatio:false, cutout:"70%", plugins:{legend:{display:false}} };
     if (homeDonut){ homeDonut.data=dd; homeDonut.update(); }
     else homeDonut=new Chart(el("homeDonut").getContext("2d"),{ type:"doughnut", data:dd, options:dopts });
+
+    renderWarnings();
+  }
+
+  // find numbers used by more than one product
+  function dupGroups(keyFn){
+    var m={}; ROWS.forEach(function(x){ var k=cc(keyFn(x)); if(!k) return; (m[k]=m[k]||[]).push(x); });
+    var out=[]; Object.keys(m).forEach(function(k){ if(m[k].length>1) out.push({ key:k, rows:m[k] }); });
+    return out;
+  }
+  function warnRow(cls, tag, label, key, rows){
+    var shafts=rows.map(function(r){ return esc(r.code||"(no shaft)"); }).join(", ");
+    return "<div class='warnItem "+cls+"'><span class='wtag "+cls+"'>"+tag+"</span>"+
+      "<div class='wbody'>"+label+" <b>"+esc(key)+"</b> — used by "+rows.length+" products: <span class='wshafts'>"+shafts+"</span></div></div>";
+  }
+  function renderWarnings(){
+    var shaftDups=dupGroups(function(x){return x.code;});
+    var boxDups=dupGroups(function(x){return x.box;});
+    var nfcDups=dupGroups(function(x){return x.nfc;});
+    var html="";
+    shaftDups.forEach(function(g){ html+=warnRow("err","SHAFT DUPLICATE","Shaft number",g.key,g.rows); });
+    boxDups.forEach(function(g){ html+=warnRow("err","BOX DUPLICATE","Box number",g.key,g.rows); });
+    nfcDups.forEach(function(g){ html+=warnRow("warn","NFC DUPLICATE","NFC number",g.key,g.rows); });
+    if (!html){
+      html="<div class='warnItem ok'><span class='wtag' style='background:rgba(46,172,102,.2);color:#63d597'>OK</span><div class='wbody'>No duplicates. Every shaft, box, and NFC number is used by only one product.</div></div>";
+    } else {
+      var n=shaftDups.length+boxDups.length+nfcDups.length;
+      html="<div style='font-size:12px;color:#e0a161;margin-bottom:10px;font-weight:700'>"+n+" duplicate number"+(n>1?"s":"")+" found — red = must fix, orange = factory NFC duplicate (ok).</div>"+html;
+    }
+    el("warnBox").innerHTML=html;
   }
 
   /* ===== SEARCH ===== */
