@@ -117,17 +117,30 @@
   .rgrid a{ color:#7fe5e8; }
   .notfound{ color:var(--muted2); font-size:14px; padding:6px 0; }
 
-  /* duplicate warnings */
-  .warnItem{ display:flex; align-items:flex-start; gap:10px; padding:11px 12px; border-radius:10px; margin-bottom:8px; font-size:13px; border:1px solid var(--border); }
-  .warnItem:last-child{ margin-bottom:0; }
-  .warnItem.err{ background:rgba(224,101,95,.10); border-color:rgba(224,101,95,.4); }
-  .warnItem.warn{ background:rgba(224,138,60,.10); border-color:rgba(224,138,60,.4); }
-  .warnItem.ok{ background:rgba(46,172,102,.08); border-color:rgba(46,172,102,.3); color:#8fd8ac; }
-  .wtag{ flex:0 0 auto; font-size:10px; font-weight:800; padding:3px 8px; border-radius:999px; white-space:nowrap; }
-  .wtag.err{ background:rgba(224,101,95,.2); color:#e88a86; }
-  .wtag.warn{ background:rgba(224,138,60,.2); color:#e0a161; }
-  .warnItem .wbody b{ color:var(--text); }
-  .warnItem .wshafts{ color:var(--muted2); }
+  /* nav warning badge */
+  .navitem.alert{ color:#f0b3ae; }
+  .navitem .badge{ margin-left:auto; background:#e0655f; color:#fff; font-size:11px; font-weight:800; border-radius:999px; padding:1px 8px; }
+  /* issue cards */
+  .issue{ border:1px solid var(--border); border-radius:12px; padding:14px 15px; margin-bottom:10px; background:#0f1714; }
+  .issue.err{ border-left:4px solid #e0655f; }
+  .issue.warn{ border-left:4px solid #e08a3c; }
+  .issue .itop{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .itag{ font-size:10px; font-weight:800; padding:3px 9px; border-radius:999px; white-space:nowrap; }
+  .itag.err{ background:rgba(224,101,95,.2); color:#e88a86; }
+  .itag.warn{ background:rgba(224,138,60,.2); color:#e0a161; }
+  .issue .inum{ font-size:15px; font-weight:800; word-break:break-all; }
+  .issue .icnt{ font-size:12px; color:var(--muted2); }
+  .issue .iact{ font-size:12.5px; margin-top:7px; }
+  .issue.err .iact{ color:#e88a86; } .issue.warn .iact{ color:#e0a161; }
+  .issue .iprods{ margin-top:9px; display:flex; flex-direction:column; gap:5px; }
+  .iprow{ font-size:12.5px; color:#9fb0a8; display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding:5px 8px; background:#0c1310; border-radius:7px; }
+  .iprow .ish{ color:var(--text); font-weight:700; }
+  .iprow .ipill{ font-size:10px; padding:1px 7px; border-radius:999px; background:#152019; color:#9fb0a8; }
+  .iprow .ipill.china{ background:rgba(224,176,0,.15); color:#e0b000; }
+  .iempty{ text-align:center; padding:30px 10px; }
+  .iempty .big{ font-size:34px; }
+  .iempty .t{ font-size:15px; font-weight:700; margin-top:8px; color:#8fd8ac; }
+  .iempty .s{ font-size:13px; color:var(--muted2); margin-top:4px; }
 
   #report{ display:none; }
   @media print{
@@ -176,6 +189,7 @@
       <div class="navitem on" id="navHome" onclick="setPage('home')"><span class="ic">⌂</span> Home</div>
       <div class="navitem" id="navOrders" onclick="setPage('orders')"><span class="ic">▤</span> Orders</div>
       <div class="navitem" id="navReg" onclick="setPage('register')"><span class="ic">✓</span> Registered / Shipped</div>
+      <div class="navitem" id="navIssues" onclick="setPage('issues')"><span class="ic">⚠</span> Issues</div>
       <div class="navlabel">Data</div>
       <div class="navitem" onclick="loadStats()"><span class="ic">↻</span> Refresh</div>
       <div class="foot"><button class="logoutBtn" onclick="logout()"><span class="ic">⏻</span> Log out</button></div>
@@ -186,6 +200,7 @@
         <button id="mnavHome" class="on" onclick="setPage('home')">⌂ Home</button>
         <button id="mnavOrders" onclick="setPage('orders')">Orders</button>
         <button id="mnavReg" onclick="setPage('register')">Registered</button>
+        <button id="mnavIssues" onclick="setPage('issues')">Issues</button>
         <button onclick="loadStats()">↻</button>
         <button onclick="logout()">Log out</button>
       </div>
@@ -220,12 +235,6 @@
         <div class="panel" style="margin-bottom:16px;">
           <h3>Registration progress</h3>
           <div class="progWrap"><div class="progBar"><div class="progFill" id="progFill"></div></div><div class="progText" id="progText"></div></div>
-        </div>
-
-        <div class="panel" style="margin-bottom:16px;">
-          <h3>⚠ Duplicate checks</h3>
-          <div class="psub">Any two products sharing the same shaft, box, or NFC number</div>
-          <div id="warnBox"></div>
         </div>
 
         <div class="grid2">
@@ -300,6 +309,34 @@
           <table><thead id="tblHead"></thead><tbody id="tbody"></tbody></table>
         </div>
       </div>
+      <!-- ===== ISSUES VIEW ===== -->
+      <div id="viewIssues" class="hidden">
+        <div class="cards">
+          <div class="card"><div class="k">Must fix</div><div class="v" id="isMustfix" style="color:#e88a86">0</div><div class="s">same shaft or box on 2 products</div></div>
+          <div class="card"><div class="k">NFC duplicates</div><div class="v" id="isNfc" style="color:#e0a161">0</div><div class="s">factory repeats — usually fine</div></div>
+          <div class="card"><div class="k">Products involved</div><div class="v" id="isAffected" style="color:#eafffb">0</div><div class="s">rows sharing a number</div></div>
+          <div class="card"><div class="k">Status</div><div class="v" id="isStatus" style="color:#63d597;font-size:20px">All clear</div><div class="s" id="isStatusSub"></div></div>
+        </div>
+
+        <div class="filters">
+          <div class="fgroup"><label>Show</label>
+            <div class="seg" id="segIssue">
+              <button data-v="all" class="on" onclick="setIssueFilter('all')">All</button>
+              <button data-v="fix" onclick="setIssueFilter('fix')">Must fix</button>
+              <button data-v="nfc" onclick="setIssueFilter('nfc')">NFC only</button>
+            </div>
+          </div>
+          <div class="fgroup" style="flex:1; min-width:200px"><label>Search a number or shaft</label>
+            <input type="text" id="issueQ" placeholder="type to filter…" oninput="renderIssues()">
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Duplicate numbers</h3>
+          <div class="psub" id="issueIntro">Each item below is a number shared by more than one product. Fix the red ones (a shaft or box number must be unique). Orange NFC repeats are usually the factory reusing a tag and are OK to leave.</div>
+          <div id="issueList"></div>
+        </div>
+      </div>
     </main>
   </div>
 
@@ -359,7 +396,7 @@
         ROWS=(d.rows||[]).map(function(x){ var p=parseCode(x.code); return { d:x.d||"", side:x.side, type:p.type, omonth:p.omonth, code:x.code||"", nfc:x.nfc||"", box:x.box||"" }; });
         ORDERS=(d.orders||[]).map(function(c){ var p=parseCode(c); return { type:p.type, omonth:p.omonth, code:c }; });
         regSet={}; ROWS.forEach(function(x){ regSet[cc(x.code)]=1; });
-        initDates(); setPage(page);
+        initDates(); updateIssueBadge(); setPage(page);
       })
       .catch(function(){});
   }
@@ -381,15 +418,22 @@
     el("mnavHome").className=(v==="home"?"on":"");
     el("mnavOrders").className=(v==="orders"?"on":"");
     el("mnavReg").className=(v==="register"?"on":"");
-    var titles={home:"Home",orders:"Orders",register:"Registered / Shipped"};
+    el("mnavIssues").className=(v==="issues"?"on":"");
+    var titles={home:"Home",orders:"Orders",register:"Registered / Shipped",issues:"Issues"};
     el("pageTitle").textContent=titles[v]; el("crumbView").textContent=titles[v];
-    if (v==="home"){ el("viewHome").classList.remove("hidden"); el("viewData").classList.add("hidden"); renderHome(); }
+    el("viewHome").classList.add("hidden"); el("viewData").classList.add("hidden"); el("viewIssues").classList.add("hidden");
+    // hide the range/pdf controls that don't apply to Home/Issues
+    var showPdf=(v==="orders"||v==="register");
+    el("pdfBtn").style.display=showPdf?"":"none"; el("pdfChk").style.display=showPdf?"":"none";
+    if (v==="home"){ el("viewHome").classList.remove("hidden"); renderHome(); }
+    else if (v==="issues"){ el("viewIssues").classList.remove("hidden"); renderIssues(); }
     else {
-      el("viewHome").classList.add("hidden"); el("viewData").classList.remove("hidden");
+      el("viewData").classList.remove("hidden");
       basis=(v==="orders")?"orders":"register";
       el("sideFilter").style.display=(basis==="orders")?"none":"";
       render();
     }
+    updateIssueBadge();
   }
 
   function setType(v){ type=v; segOn("segType",v); render(); }
@@ -441,35 +485,80 @@
     if (homeDonut){ homeDonut.data=dd; homeDonut.update(); }
     else homeDonut=new Chart(el("homeDonut").getContext("2d"),{ type:"doughnut", data:dd, options:dopts });
 
-    renderWarnings();
   }
 
-  // find numbers used by more than one product
+  /* ===== ISSUES (duplicate numbers) ===== */
+  var issueFilter="all";
   function dupGroups(keyFn){
     var m={}; ROWS.forEach(function(x){ var k=cc(keyFn(x)); if(!k) return; (m[k]=m[k]||[]).push(x); });
     var out=[]; Object.keys(m).forEach(function(k){ if(m[k].length>1) out.push({ key:k, rows:m[k] }); });
     return out;
   }
-  function warnRow(cls, tag, label, key, rows){
-    var shafts=rows.map(function(r){ return esc(r.code||"(no shaft)"); }).join(", ");
-    return "<div class='warnItem "+cls+"'><span class='wtag "+cls+"'>"+tag+"</span>"+
-      "<div class='wbody'>"+label+" <b>"+esc(key)+"</b> — used by "+rows.length+" products: <span class='wshafts'>"+shafts+"</span></div></div>";
+  function computeIssues(){
+    var items=[];
+    dupGroups(function(x){return x.code;}).forEach(function(g){ items.push({ kind:"shaft", key:g.key, rows:g.rows }); });
+    dupGroups(function(x){return x.box;}).forEach(function(g){ items.push({ kind:"box", key:g.key, rows:g.rows }); });
+    dupGroups(function(x){return x.nfc;}).forEach(function(g){ items.push({ kind:"nfc", key:g.key, rows:g.rows }); });
+    return items;
   }
-  function renderWarnings(){
-    var shaftDups=dupGroups(function(x){return x.code;});
-    var boxDups=dupGroups(function(x){return x.box;});
-    var nfcDups=dupGroups(function(x){return x.nfc;});
-    var html="";
-    shaftDups.forEach(function(g){ html+=warnRow("err","SHAFT DUPLICATE","Shaft number",g.key,g.rows); });
-    boxDups.forEach(function(g){ html+=warnRow("err","BOX DUPLICATE","Box number",g.key,g.rows); });
-    nfcDups.forEach(function(g){ html+=warnRow("warn","NFC DUPLICATE","NFC number",g.key,g.rows); });
-    if (!html){
-      html="<div class='warnItem ok'><span class='wtag' style='background:rgba(46,172,102,.2);color:#63d597'>OK</span><div class='wbody'>No duplicates. Every shaft, box, and NFC number is used by only one product.</div></div>";
-    } else {
-      var n=shaftDups.length+boxDups.length+nfcDups.length;
-      html="<div style='font-size:12px;color:#e0a161;margin-bottom:10px;font-weight:700'>"+n+" duplicate number"+(n>1?"s":"")+" found — red = must fix, orange = factory NFC duplicate (ok).</div>"+html;
+  function updateIssueBadge(){
+    var mustfix=computeIssues().filter(function(i){return i.kind!=="nfc";}).length;
+    var nav=el("navIssues"), mnav=el("mnavIssues");
+    if (nav){
+      nav.className="navitem"+(page==="issues"?" on":"")+(mustfix>0?" alert":"");
+      nav.innerHTML='<span class="ic">⚠</span> Issues'+(mustfix>0?'<span class="badge">'+mustfix+'</span>':'');
     }
-    el("warnBox").innerHTML=html;
+    if (mnav){ mnav.textContent = mustfix>0 ? ("Issues ("+mustfix+")") : "Issues"; }
+  }
+  function setIssueFilter(v){ issueFilter=v; segOn("segIssue",v); renderIssues(); }
+
+  function renderIssues(){
+    var items=computeIssues();
+    var mustfix=items.filter(function(i){return i.kind!=="nfc";}).length;
+    var nfc=items.filter(function(i){return i.kind==="nfc";}).length;
+    var seen={}, affected=0;
+    items.forEach(function(i){ i.rows.forEach(function(r){ var id=cc(r.code)+"|"+cc(r.box)+"|"+cc(r.nfc); if(!seen[id]){seen[id]=1;affected++;} }); });
+    el("isMustfix").textContent=mustfix;
+    el("isNfc").textContent=nfc;
+    el("isAffected").textContent=affected;
+    if (mustfix>0){ el("isStatus").textContent="Action needed"; el("isStatus").style.color="#e88a86"; el("isStatusSub").textContent="fix the red items"; }
+    else if (nfc>0){ el("isStatus").textContent="OK"; el("isStatus").style.color="#63d597"; el("isStatusSub").textContent="only allowed NFC repeats"; }
+    else { el("isStatus").textContent="All clear"; el("isStatus").style.color="#63d597"; el("isStatusSub").textContent="no duplicates"; }
+
+    var q=cc(el("issueQ").value);
+    var shown=items.filter(function(i){
+      if (issueFilter==="fix" && i.kind==="nfc") return false;
+      if (issueFilter==="nfc" && i.kind!=="nfc") return false;
+      if (q){ var hit=cc(i.key).indexOf(q)!==-1 || i.rows.some(function(r){return cc(r.code).indexOf(q)!==-1;}); if(!hit) return false; }
+      return true;
+    });
+    // must-fix first
+    shown.sort(function(a,b){ return (a.kind==="nfc")-(b.kind==="nfc"); });
+
+    if (!shown.length){
+      el("issueList").innerHTML = items.length
+        ? "<div class='iempty'><div class='t'>Nothing matches this filter</div><div class='s'>Try “All” or clear the search.</div></div>"
+        : "<div class='iempty'><div class='big'>✓</div><div class='t'>Everything checks out</div><div class='s'>No two products share a shaft, box, or NFC number.</div></div>";
+      return;
+    }
+
+    var meta={ shaft:{cls:"err",tag:"SHAFT DUPLICATE",label:"Shaft number",act:"A shaft number must be unique. Two products can’t share it — open the sheet and correct one."},
+               box:{cls:"err",tag:"BOX DUPLICATE",label:"Box number",act:"A box number must be unique. Two products can’t share it — open the sheet and correct one."},
+               nfc:{cls:"warn",tag:"NFC DUPLICATE",label:"NFC number",act:"Allowed — the factory sometimes reuses an NFC tag. No action needed unless you think it’s wrong."} };
+    var html=shown.map(function(i){
+      var m=meta[i.kind];
+      var prods=i.rows.map(function(r){
+        var pills="<span class='ipill'>"+(r.type||"Other")+"</span>"+
+          "<span class='ipill "+(r.side==="dist"?"china":"")+"'>"+(r.side==="dist"?"China":"Mine")+"</span>"+
+          (r.omonth?"<span class='ipill'>"+r.omonth+"</span>":"")+
+          (r.d?"<span class='ipill'>reg "+r.d+"</span>":"");
+        return "<div class='iprow'><span class='ish'>"+esc(r.code||"(no shaft)")+"</span>"+pills+"</div>";
+      }).join("");
+      return "<div class='issue "+m.cls+"'><div class='itop'><span class='itag "+m.cls+"'>"+m.tag+"</span>"+
+        "<span class='inum'>"+esc(i.key)+"</span><span class='icnt'>· "+i.rows.length+" products</span></div>"+
+        "<div class='iact'>"+m.act+"</div><div class='iprods'>"+prods+"</div></div>";
+    }).join("");
+    el("issueList").innerHTML=html;
   }
 
   /* ===== SEARCH ===== */
